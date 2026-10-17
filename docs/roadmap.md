@@ -29,13 +29,19 @@ Before implementation, understand:
 - cancellation
 - stream errors
 
-## v0.3 — Provider Features
+## v0.3 — Provider Features — In Progress
 
 - reasoning options
 - model capabilities
 - provider metadata
 - unsupported-option warnings
 - improved error handling
+
+The core implemented surface includes the account-aware capability catalog, safe
+provider metadata, centralized unsupported-option warnings, and the one
+account-backed validated reasoning option (`gpt-5.6-terra` with medium effort).
+Account-backed validation remains incomplete for streaming cancellation,
+interrupted streams, and terminal error cases.
 
 ## v0.4 — Tools
 

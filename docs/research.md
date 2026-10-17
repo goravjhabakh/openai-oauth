@@ -389,6 +389,23 @@ account's model catalog, not a package default, entitlement guarantee, or
 hard-coded model selection rule. v0.2 does not send reasoning controls, so its
 streaming validation must use the model preference without forwarding effort.
 
+### Live v0.3 validation
+
+Validated locally with the same consenting account on 2026-10-18. No tokens,
+identity data, request bodies, or response text were retained.
+
+- The current account catalog retained seven list-visible entries in server
+  order. The inspected response did not provide a stable model-specific
+  capability schema suitable for public advertising.
+- `gpt-5.6-terra` accepted `reasoning: { effort: "medium" }` on the public
+  OAuth `/v1/responses` route with `store: false` and `stream: true`. The
+  response completed successfully (request ID was not supplied in the response
+  headers), and its terminal usage contained `output_tokens_details` with
+  `reasoning_tokens: 0`.
+- This validates only that exact model/control pair. It does not validate a
+  reasoning summary request, reasoning-text SSE events, other effort values,
+  or any other model. Those remain unavailable in the provider.
+
 ### v0.2 implementation status
 
 v0.2 implements and mock-validates incremental text streaming, response

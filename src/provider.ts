@@ -1,6 +1,6 @@
 import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4GenerateResult, LanguageModelV4StreamPart, LanguageModelV4StreamResult, SharedV4Warning } from '@ai-sdk/provider';
 import { OpenAIOAuth } from './auth.js';
-import { OpenAIOAuthError } from './errors.js';
+import { OpenAIOAuthError, errorFromEvent } from './errors.js';
 import { ResponsesClient } from './responses.js';
 import type { ResponseTerminal } from './responses.js';
 import type { OpenAIOAuthOptions } from './auth.js';
@@ -29,22 +29,21 @@ class OpenAIOAuthLanguageModel implements LanguageModelV4 {
   constructor(readonly modelId: string, auth: OpenAIOAuth) { this.responses = new ResponsesClient({ accessToken: () => auth.accessToken(), fetch: auth.requestFetch }); }
 
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
-    const { instructions, input } = convertPrompt(options);
-    const request = { model: this.modelId, input, ...(instructions ? { instructions } : {}), store: false, stream: true };
+    const { request, warnings } = requestFor(this.modelId, options);
     const result = await this.responses.generate(request, options.abortSignal);
     return {
       content: result.text ? [{ type: 'text', text: result.text }] : [],
       finishReason: finishReason(result.terminal),
       usage: usageFor(result.terminal),
-      warnings: unsupportedWarnings(options),
+      warnings,
       request: { body: request },
-      response: { id: result.terminal.id, headers: Object.fromEntries(result.headers.entries()) },
+      response: responseDetails(result.terminal, result.headers),
+      providerMetadata: providerMetadata(result.terminal),
     };
   }
 
   async doStream(options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
-    const { instructions, input } = convertPrompt(options);
-    const request = { model: this.modelId, input, ...(instructions ? { instructions } : {}), store: false, stream: true };
+    const { request, warnings } = requestFor(this.modelId, options);
     const cancellation = new AbortController();
     let cancelled = false;
     let consumerCancelled = false;
@@ -59,7 +58,7 @@ class OpenAIOAuthLanguageModel implements LanguageModelV4 {
       const { headers, events } = await this.responses.stream(request, signal);
       const stream = new ReadableStream<LanguageModelV4StreamPart>({
         async start(controller) {
-          controller.enqueue({ type: 'stream-start', warnings: unsupportedWarnings(options) });
+          controller.enqueue({ type: 'stream-start', warnings });
           const textIds = new Set<string>();
           let metadataSent = false;
           let completed = false;
@@ -82,7 +81,7 @@ class OpenAIOAuthLanguageModel implements LanguageModelV4 {
                 for (const id of textIds) controller.enqueue({ type: 'text-end', id });
                 textIds.clear();
                 const result = event.response as ResponseTerminal;
-                controller.enqueue({ type: 'finish', usage: usageFor(result), finishReason: finishReason(result) });
+                controller.enqueue({ type: 'finish', usage: usageFor(result), finishReason: finishReason(result), providerMetadata: providerMetadata(result) });
                 completed = true;
                 break;
               }
@@ -138,9 +137,7 @@ function usageFor(terminal: ResponseTerminal) {
 }
 
 function streamError(event: Record<string, unknown>, headers: Headers): OpenAIOAuthError {
-  if (event.type === 'error') return new OpenAIOAuthError(String(event.message ?? 'OpenAI stream error.'), { code: typeof event.code === 'string' ? event.code : undefined, requestId: headers.get('x-request-id') ?? undefined });
-  const failure = (event.response as { error?: { message?: string; code?: string; param?: string } } | undefined)?.error;
-  return new OpenAIOAuthError(failure?.message ?? `OpenAI response ${event.type}.`, { code: failure?.code, param: failure?.param, requestId: headers.get('x-request-id') ?? undefined });
+  return errorFromEvent(event, headers.get('x-request-id') ?? undefined);
 }
 
 function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: string; input: unknown[] } {
@@ -158,12 +155,50 @@ function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: st
   return { ...(instructions.length ? { instructions: instructions.join('\n\n') } : {}), input };
 }
 
-function unsupportedWarnings(options: LanguageModelV4CallOptions): SharedV4Warning[] {
+function requestFor(model: string, options: LanguageModelV4CallOptions): { request: Record<string, unknown>; warnings: SharedV4Warning[] } {
+  const { instructions, input } = convertPrompt(options);
+  const reasoning = reasoningOption(model, options.providerOptions?.['openai-oauth']);
+  return {
+    request: { model, input, ...(instructions ? { instructions } : {}), ...(reasoning ? { reasoning } : {}), store: false, stream: true },
+    warnings: unsupportedWarnings(options, reasoning !== undefined),
+  };
+}
+
+/** The only account-backed validated provider option is `{ effort: 'medium' }` on gpt-5.6-terra. */
+export interface OpenAIOAuthProviderOptions { effort?: 'medium' }
+
+function reasoningOption(model: string, value: unknown): OpenAIOAuthProviderOptions | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || Object.keys(value).some(key => key !== 'effort') || value.effort !== 'medium') {
+    throw new OpenAIOAuthError("providerOptions['openai-oauth'] must be { effort: 'medium' }.");
+  }
+  if (model !== 'gpt-5.6-terra') throw new OpenAIOAuthError("providerOptions['openai-oauth'].effort is only validated for gpt-5.6-terra.");
+  return { effort: 'medium' };
+}
+
+function unsupportedWarnings(options: LanguageModelV4CallOptions, hasProviderReasoning: boolean): SharedV4Warning[] {
   const unsupported: Array<[string, unknown]> = [
     ['maxOutputTokens', options.maxOutputTokens], ['temperature', options.temperature], ['stopSequences', options.stopSequences],
     ['topP', options.topP], ['topK', options.topK], ['presencePenalty', options.presencePenalty], ['frequencyPenalty', options.frequencyPenalty],
     ['seed', options.seed], ['reasoning', options.reasoning && options.reasoning !== 'provider-default'], ['responseFormat', options.responseFormat && options.responseFormat.type !== 'text'],
-    ['tools', options.tools], ['toolChoice', options.toolChoice && options.toolChoice.type !== 'auto'],
+    ['tools', options.tools], ['toolChoice', options.toolChoice && options.toolChoice.type !== 'auto'], ['includeRawChunks', options.includeRawChunks],
   ];
-  return unsupported.filter(([, value]) => value !== undefined && value !== false).map(([feature]) => ({ type: 'unsupported', feature }));
+  const warnings = unsupported.filter(([, value]) => value !== undefined && value !== false).map(([feature]) => ({ type: 'unsupported' as const, feature }));
+  if (options.providerOptions?.['openai-oauth'] !== undefined && !hasProviderReasoning) warnings.push({ type: 'unsupported', feature: "providerOptions['openai-oauth']" });
+  return warnings;
 }
+
+function responseDetails(terminal: ResponseTerminal, headers: Headers) {
+  return { ...(terminal.id ? { id: terminal.id } : {}), ...(terminal.model ? { modelId: terminal.model } : {}), ...(typeof terminal.created_at === 'number' ? { timestamp: new Date(terminal.created_at * 1_000) } : {}), headers: Object.fromEntries(headers.entries()) };
+}
+
+function providerMetadata(terminal: ResponseTerminal) {
+  const usage = terminal.usage;
+  return { 'openai-oauth': {
+    ...(terminal.status ? { terminalStatus: terminal.status } : {}),
+    ...(usage ? { rawUsage: usage as unknown as Record<string, unknown> } : {}),
+    ...(usage?.output_tokens_details?.reasoning_tokens !== undefined ? { reasoningTokensReported: true } : {}),
+  } } as LanguageModelV4GenerateResult['providerMetadata'];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }

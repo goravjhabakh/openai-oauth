@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createServer } from 'node:http';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
-import type { CredentialStore, OAuthCredentials, OpenAIModel } from './types.js';
+import type { CredentialStore, OAuthCredentials, OpenAIModel, OpenAIModelCatalogEntry } from './types.js';
 import { OpenAIOAuthError, responseError } from './errors.js';
 
 const AUTH_BASE = 'https://auth.openai.com';
@@ -76,10 +76,18 @@ export class OpenAIOAuth {
   }
 
   async listModels(): Promise<OpenAIModel[]> {
+    return (await this.listModelCatalog()).map(({ id, name }) => ({ id, name }));
+  }
+
+  async listModelCatalog(): Promise<OpenAIModelCatalogEntry[]> {
     const response = await this.requestFetch(`${API_BASE}/models`, { headers: { authorization: `Bearer ${await this.accessToken()}` } });
     if (!response.ok) throw await responseError(response);
-    const body = await response.json() as { models?: Array<{ slug?: string; display_name?: string; visibility?: string }> };
-    return (body.models ?? []).filter(model => model.visibility === 'list' && model.slug).map(model => ({ id: model.slug!, name: model.display_name ?? model.slug! }));
+    const body = await response.json() as { models?: Array<{ slug?: string; display_name?: string; visibility?: string; capabilities?: unknown }> };
+    return (body.models ?? []).filter(model => model.visibility === 'list' && model.slug).map(model => ({
+      id: model.slug!, name: model.display_name ?? model.slug!,
+      capabilities: modelCapabilities(model.slug!),
+      ...(isRecord(model.capabilities) ? { advertisedCapabilities: model.capabilities } : {}),
+    }));
   }
 
   private async accessTokenInner(): Promise<string> {
@@ -116,6 +124,23 @@ export class OpenAIOAuth {
     return { clientId, hostId: this.options.hostId, identity: { issuer: AUTH_BASE, sub: verified.payload.sub, email: typeof verified.payload.email === 'string' ? verified.payload.email : undefined }, accessToken: tokens.access_token, refreshToken: tokens.refresh_token, idToken, expiresAt: Date.now() + tokens.expires_in * 1000, scopes, earliestRefreshAt: tokens.earliest_refresh_at, };
   }
 }
+
+function modelCapabilities(id: string): OpenAIModelCatalogEntry['capabilities'] {
+  return {
+    route: {
+      text: true, mandatoryStreaming: true, nonStreamingHttp: false, filesUpload: false, audioVideo: false,
+      imageGeneration: false, fileSearch: false, codeInterpreter: false, computerUse: false, hostedMcp: false,
+      toolSearch: false, persistentResponses: false,
+    },
+    text: 'validated', streaming: 'validated', nonStreamingHttp: 'advertised',
+    filesUpload: 'advertised', audioVideo: 'advertised', imageGeneration: 'advertised', fileSearch: 'advertised',
+    codeInterpreter: 'advertised', computerUse: 'advertised', hostedMcp: 'advertised', toolSearch: 'advertised',
+    persistentResponses: 'advertised', reasoning: id === 'gpt-5.6-terra' ? 'validated' : 'unknown',
+    tools: 'unknown', images: 'unknown', files: 'unknown', webSearch: 'unknown', jsonSchema: 'unknown', detailedUsage: 'unknown',
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
 
 interface TokenResponse { access_token: string; refresh_token: string; id_token?: string; expires_in: number; scope?: string; earliest_refresh_at?: number }
 function randomValue() { return base64url(randomBytes(32)); }

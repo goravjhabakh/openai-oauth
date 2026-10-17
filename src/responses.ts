@@ -1,4 +1,4 @@
-import { OpenAIOAuthError, responseError } from './errors.js';
+import { OpenAIOAuthError, errorFromEvent, responseError } from './errors.js';
 
 export interface ResponsesClientOptions { accessToken(): Promise<string>; fetch?: typeof fetch }
 
@@ -28,10 +28,9 @@ export class ResponsesClient {
       if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') text += event.delta;
       if (event.type === 'response.completed') terminal = event.response as ResponseTerminal;
       if (event.type === 'response.failed' || event.type === 'response.incomplete') {
-        const failure = (event.response as { error?: { message?: string; code?: string; param?: string } } | undefined)?.error;
-        throw new OpenAIOAuthError(failure?.message ?? `OpenAI response ${event.type}.`, { code: failure?.code, param: failure?.param, requestId: headers.get('x-request-id') ?? undefined });
+        throw errorFromEvent(event, headers.get('x-request-id') ?? undefined);
       }
-      if (event.type === 'error') throw new OpenAIOAuthError(String(event.message ?? 'OpenAI stream error.'), { code: typeof event.code === 'string' ? event.code : undefined, requestId: headers.get('x-request-id') ?? undefined });
+      if (event.type === 'error') throw errorFromEvent(event, headers.get('x-request-id') ?? undefined);
     }
     if (!terminal) throw new OpenAIOAuthError('OpenAI stream ended before response.completed.', { requestId: headers.get('x-request-id') ?? undefined });
     return { terminal, headers, text };

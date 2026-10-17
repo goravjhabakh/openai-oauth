@@ -152,7 +152,7 @@ The package should implement only the Responses behavior required by this OAuth 
 
 ## Version Direction
 
-v0.1 focuses on:
+v0.1 provides:
 
 - OAuth
 - credential storage
@@ -160,5 +160,20 @@ v0.1 focuses on:
 - text generation
 - `generateText()`
 - basic error handling
+
+v0.2 adds incremental SSE parsing and `streamText()` support. The same
+mandatory streaming request is used for both generation paths; cancellation and
+non-success stream terminals do not report a successful finish.
+
+v0.3 adds a capability-aware model catalog, safe OAuth-specific provider
+metadata, centralized unsupported-option handling, and redacted actionable
+errors. The only reasoning request representation currently enabled is the
+account-backed validated `reasoning: { effort: "medium" }` control for
+`gpt-5.6-terra`; no provider-wide default or inference is made from it.
+
+Model catalog entries retain list-visible server order and display names. They
+separate route-wide availability from model/account evidence: validated,
+advertised, or unknown. A listed model remains subject to entitlement checks at
+request time.
 
 Streaming APIs, tools, richer inputs, and other capabilities are added incrementally in later versions.
