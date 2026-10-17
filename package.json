@@ -1,0 +1,47 @@
+{
+  "name": "@gorav/openai-oauth",
+  "version": "0.1.0",
+  "description": "OpenAI OAuth provider for the Vercel AI SDK",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "peerDependencies": {
+    "ai": "^7.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "validate:live": "pnpm build && node scripts/validate-live-v0.1.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@ai-sdk/provider": "^4.0.28",
+    "@ai-sdk/provider-utils": "^5.0.61",
+    "jose": "^6.2.12"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "ai": "^7.0.142",
+    "tsup": "^9.0.0",
+    "typescript": "6.0.3",
+    "vitest": "^5.0.5"
+  }
+}

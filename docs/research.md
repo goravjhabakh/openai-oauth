@@ -251,13 +251,18 @@ experiments before being advertised.
 
 ### 5. AI SDK implications
 
-The repository has no installed runtime packages yet. Registry versions checked
-on 2026-10-17 were:
+Registry versions checked on 2026-10-17 were:
 
 - `ai` 7.0.143
 - `@ai-sdk/provider` 4.0.29
 - `@ai-sdk/provider-utils` 5.0.62
 - `@ai-sdk/openai` 4.0.96
+
+The v0.1 implementation installs `@ai-sdk/provider`,
+`@ai-sdk/provider-utils`, and `jose`; it declares AI SDK 7 as a peer dependency.
+The installed `LanguageModelV4` requires `supportedUrls`, `doGenerate`, and
+`doStream`. v0.1 implements `doGenerate` and makes `doStream` fail explicitly,
+as required by its scope.
 
 The current provider contract is `LanguageModelV4`. Current AI SDK source
 confirms that OpenAI Responses `doStream()` sends `stream: true`, while
@@ -348,6 +353,32 @@ stable machine-readable codes.
 
 These experiments require a consenting test account and should capture sanitized
 request/response fixtures and request IDs. Never commit tokens or personal data.
+
+## Live v0.1 validation
+
+Validated locally with a consenting ChatGPT account on 2026-10-17. The
+credential file, host identifier, and detailed local result are ignored and were
+not committed.
+
+- First-time dynamic registration completed through the `127.0.0.1` callback.
+  The saved issued client ID had the expected `oaiapp_` prefix; it was not
+  `dynamic_agent_client`.
+- A later authorization using the persisted registration also completed.
+- The granted scope set included `chatgpt.tokens.use.direct`, `offline_access`,
+  `openid`, `profile`, `email`, and `resource.invoke`. The token response
+  included `earliest_refresh_at`, and ID-token validation succeeded.
+- `GET /v1/models` returned seven `visibility: "list"` models for this account.
+  The server-selected first model (`gpt-6.1-sol` at test time) successfully
+  completed a minimal text request.
+- `generateText()` aggregated the required SSE response correctly: exact text,
+  stop finish reason, usage, and a response ID were present.
+- After deliberately expiring the local access-token timestamp, refresh rotated
+  both access and refresh tokens and the resulting credentials remained usable.
+- Revocation/sign-out returned successfully and deleted the local credential
+  record.
+
+Not yet live-validated: concurrent cross-process refresh, terminal stream
+failures/EOF, admission errors, and a second account or plan.
 
 1. **OAuth registration and validation**
    - Complete first registration with a generated host ID.

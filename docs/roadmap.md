@@ -11,7 +11,7 @@ Before implementation, understand:
 - verify prompt-role mapping
 - verify basic error behavior
 
-## v0.1 — Basic Generation
+## v0.1 — Basic Generation — Complete
 
 - provider factory
 - authentication
