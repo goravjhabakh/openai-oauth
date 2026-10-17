@@ -1,0 +1,164 @@
+# Architecture
+
+## Overview
+
+`@gorav/openai-oauth` is a Node.js-first Vercel AI SDK provider that authenticates users with OpenAI/ChatGPT OAuth and calls the public OpenAI Responses API directly.
+
+It does not depend on the Codex CLI process or ChatGPT private backend routes.
+
+```mermaid
+flowchart LR
+    App["Consuming App"] --> Provider["@gorav/openai-oauth"]
+    Provider --> Auth["OAuth + Credentials"]
+    Provider --> Model["AI SDK LanguageModelV4"]
+    Auth --> OpenAI["OpenAI Public API"]
+    Model --> OpenAI
+```
+
+## Main Components
+
+### Provider
+
+Exposes the AI SDK provider API and creates `LanguageModelV4` instances.
+
+Responsibilities:
+
+- provider configuration
+- model selection
+- AI SDK integration
+- warnings and errors
+
+### Authentication
+
+Handles the documented OpenAI OAuth flow.
+
+Responsibilities:
+
+- PKCE authorization
+- callback handling
+- token validation
+- refresh and revocation
+- issued client ID and host identity
+
+The consuming application owns its app name and stable host identity.
+
+### Credential Storage
+
+Use a small abstraction:
+
+```ts
+interface CredentialStore {
+  load(key: string): Promise<OAuthCredentials | null>;
+  save(key: string, credentials: OAuthCredentials): Promise<void>;
+  delete(key: string): Promise<void>;
+}
+```
+
+v0.1 includes a Node `FileCredentialStore`.
+
+The consuming application owns the storage path. Custom stores can be provided later.
+
+### Model Discovery
+
+Models are discovered dynamically using the authenticated account.
+
+Do not maintain a hard-coded model list.
+
+### Responses Client
+
+Calls the public OpenAI API using the OAuth access token.
+
+Main routes:
+
+```text
+GET  /v1/models
+POST /v1/responses
+```
+
+Inference requests for this OAuth flow must use:
+
+```text
+store: false
+stream: true
+```
+
+Do not use private `chatgpt.com/backend-api` routes.
+
+### AI SDK Adapter
+
+The provider maps between AI SDK `LanguageModelV4` and the OpenAI Responses protocol.
+
+`doStream()` converts SSE events into AI SDK stream parts.
+
+`doGenerate()` also sends a streaming request, but aggregates the complete stream into a `LanguageModelV4GenerateResult`.
+
+### Prompt Conversion
+
+The provider converts AI SDK prompts into supported Responses input.
+
+Important constraints:
+
+- send complete required conversation history
+- use `instructions` or developer messages for system-level instructions
+- omit unsupported request fields
+- return AI SDK warnings when generic options cannot be forwarded
+
+## Package Boundary
+
+Everything ships in one package:
+
+```text
+@gorav/openai-oauth
+```
+
+Keep internal concerns separated, but do not split them into multiple npm packages initially.
+
+Likely modules:
+
+```text
+src/
+  auth/
+  credentials/
+  models/
+  responses/
+  provider/
+```
+
+Exact file structure can evolve during implementation.
+
+## Dependencies
+
+Use:
+
+- `@ai-sdk/provider`
+- `@ai-sdk/provider-utils`
+
+Do not depend on `@ai-sdk/openai` initially.
+
+The package should implement only the Responses behavior required by this OAuth flow.
+
+## Key Constraints
+
+- Node.js first
+- TypeScript + pnpm
+- OAuth-backed ChatGPT plan access
+- public OpenAI API only
+- mandatory streaming inference
+- dynamic account-aware model discovery
+- no Codex CLI dependency
+- no private Codex backend dependency
+- minimal dependencies
+- protocol behavior must be verified before adding capabilities
+
+## Version Direction
+
+v0.1 focuses on:
+
+- OAuth
+- credential storage
+- model discovery
+- text generation
+- `generateText()`
+- basic error handling
+
+Streaming APIs, tools, richer inputs, and other capabilities are added incrementally in later versions.
