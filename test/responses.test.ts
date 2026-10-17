@@ -85,6 +85,60 @@ describe('Responses SSE', () => {
     await expect(result.response).resolves.toMatchObject({ id: 'resp_1', modelId: 'model-slug' });
   });
 
+  it('converts function tools and complete tool-result history', async () => {
+    const store = new FileCredentialStore(`${process.env.TEMP ?? '.'}/openai-oauth-test-${crypto.randomUUID()}.json`);
+    await store.save('test', { clientId: 'client', hostId: 'host', identity: { issuer: 'https://auth.openai.com', sub: 'sub' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'] });
+    const bodies: Record<string, unknown>[] = [];
+    const provider = createOpenAIOAuth({ agentName: 'Test app', hostId: 'host', credentialStore: store, credentialKey: 'test', openAuthorizationUrl() {}, fetch: async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response('data: {"type":"response.completed","response":{"status":"completed"}}\n\n');
+    } });
+    const tool = { type: 'function' as const, name: 'weather', description: 'Gets weather.', inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] } };
+    await provider('model').doGenerate({ tools: [tool], toolChoice: { type: 'tool', toolName: 'weather' }, prompt: [
+      { role: 'user', content: [{ type: 'text', text: 'Weather in Paris?' }] },
+      { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'call_1', toolName: 'weather', input: { city: 'Paris' } }] },
+      { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'call_1', toolName: 'weather', output: { type: 'json', value: { temperature: 20 } } }] },
+    ] });
+    expect(bodies[0]).toMatchObject({
+      tools: [{ type: 'function', name: 'weather', description: 'Gets weather.', parameters: tool.inputSchema }],
+      tool_choice: { type: 'function', name: 'weather' },
+      input: [
+        { role: 'user', content: [{ type: 'input_text', text: 'Weather in Paris?' }] },
+        { type: 'function_call', call_id: 'call_1', name: 'weather', arguments: '{"city":"Paris"}' },
+        { type: 'function_call_output', call_id: 'call_1', output: '{"temperature":20}' },
+      ],
+    });
+    await expect(provider('model').doGenerate({ tools: [tool], toolChoice: { type: 'tool', toolName: 'missing' }, prompt: [] })).rejects.toThrow('unknown function tool');
+  });
+
+  it('maps streamed and aggregated function calls using call_id rather than item_id', async () => {
+    const store = new FileCredentialStore(`${process.env.TEMP ?? '.'}/openai-oauth-test-${crypto.randomUUID()}.json`);
+    await store.save('test', { clientId: 'client', hostId: 'host', identity: { issuer: 'https://auth.openai.com', sub: 'sub' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'] });
+    const fixture = [
+      'data: {"type":"response.output_item.added","item":{"id":"fc_1","type":"function_call","call_id":"call_1","name":"weather","arguments":""}}\n\n',
+      'data: {"type":"response.function_call_arguments.delta","item_id":"fc_1","delta":"{\\"city\\":\\""}\n\n',
+      'data: {"type":"response.function_call_arguments.delta","item_id":"fc_1","delta":"Paris\\"}"}\n\n',
+      'data: {"type":"response.function_call_arguments.done","item_id":"fc_1","arguments":"{\\"city\\":\\"Paris\\"}"}\n\n',
+      'data: {"type":"response.completed","response":{"status":"completed"}}\n\n',
+    ].join('');
+    const provider = createOpenAIOAuth({ agentName: 'Test app', hostId: 'host', credentialStore: store, credentialKey: 'test', openAuthorizationUrl() {}, fetch: async () => new Response(fixture) });
+    const options = { tools: [{ type: 'function' as const, name: 'weather', inputSchema: { type: 'object' } }], prompt: [{ role: 'user' as const, content: [{ type: 'text' as const, text: 'Hi' }] }] };
+    const generated = await provider('model').doGenerate(options);
+    expect(generated.content).toEqual([{ type: 'tool-call', toolCallId: 'call_1', toolName: 'weather', input: '{"city":"Paris"}' }]);
+    expect(generated.finishReason).toMatchObject({ unified: 'tool-calls' });
+    const streamed = await provider('model').doStream(options);
+    const parts = await collect(streamed.stream);
+    expect(parts.filter(part => part.type !== 'response-metadata' && part.type !== 'finish')).toEqual([
+      { type: 'stream-start', warnings: [] },
+      { type: 'tool-input-start', id: 'call_1', toolName: 'weather' },
+      { type: 'tool-input-delta', id: 'call_1', delta: '{"city":"' },
+      { type: 'tool-input-delta', id: 'call_1', delta: 'Paris"}' },
+      { type: 'tool-input-end', id: 'call_1' },
+      { type: 'tool-call', toolCallId: 'call_1', toolName: 'weather', input: '{"city":"Paris"}' },
+    ]);
+    expect(parts.at(-1)).toMatchObject({ type: 'finish', finishReason: { unified: 'tool-calls' } });
+  });
+
   it('reports a premature stream end as a stream error', async () => {
     const store = new FileCredentialStore(`${process.env.TEMP ?? '.'}/openai-oauth-test-${crypto.randomUUID()}.json`);
     await store.save('test', { clientId: 'client', hostId: 'host', identity: { issuer: 'https://auth.openai.com', sub: 'sub' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'] });

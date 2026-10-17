@@ -176,4 +176,10 @@ separate route-wide availability from model/account evidence: validated,
 advertised, or unknown. A listed model remains subject to entitlement checks at
 request time.
 
-Streaming APIs, tools, richer inputs, and other capabilities are added incrementally in later versions.
+v0.4 adds client-executed function tools. The adapter maps only the validated
+top-level Responses function-tool representation; it retains each Responses
+`call_id` for AI SDK calls and converts subsequent calls/results into complete
+`function_call` and `function_call_output` input items. Provider-hosted tools,
+parallel calls, and unvalidated tool encodings remain unavailable.
+
+Streaming APIs, richer inputs, and other capabilities are added incrementally in later versions.

@@ -27,7 +27,8 @@
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "validate:live": "pnpm build && node scripts/validate-live-v0.1.mjs"
+    "validate:live": "pnpm build && node scripts/validate-live-v0.1.mjs",
+    "validate:live:v0.4": "pnpm build && node scripts/validate-live-v0.4.mjs"
   },
   "keywords": [],
   "author": "",

@@ -43,14 +43,13 @@ account-backed validated reasoning option (`gpt-5.6-terra` with medium effort).
 Account-backed validation remains incomplete for streaming cancellation,
 interrupted streams, and terminal error cases.
 
-## v0.4 — Tools
+## v0.4 — Tools — Complete
 
 If the backend supports the required behavior cleanly:
 
-- AI SDK function tools
-- tool choice
-- tool-call streaming
-- tool result mapping
+- account-backed validated AI SDK function tools and tool choice
+- streamed argument and completed tool-call mapping
+- complete-history tool-result continuation
 
 ## v0.5 — Richer Inputs and Output
 

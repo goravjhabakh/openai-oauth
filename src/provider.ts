@@ -1,4 +1,4 @@
-import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4GenerateResult, LanguageModelV4StreamPart, LanguageModelV4StreamResult, SharedV4Warning } from '@ai-sdk/provider';
+import type { LanguageModelV4, LanguageModelV4CallOptions, LanguageModelV4Content, LanguageModelV4GenerateResult, LanguageModelV4StreamPart, LanguageModelV4StreamResult, SharedV4Warning } from '@ai-sdk/provider';
 import { OpenAIOAuth } from './auth.js';
 import { OpenAIOAuthError, errorFromEvent } from './errors.js';
 import { ResponsesClient } from './responses.js';
@@ -31,9 +31,10 @@ class OpenAIOAuthLanguageModel implements LanguageModelV4 {
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
     const { request, warnings } = requestFor(this.modelId, options);
     const result = await this.responses.generate(request, options.abortSignal);
+    const content = contentFromEvents(result.events);
     return {
-      content: result.text ? [{ type: 'text', text: result.text }] : [],
-      finishReason: finishReason(result.terminal),
+      content,
+      finishReason: finishReason(result.terminal, content.some(item => item.type === 'tool-call')),
       usage: usageFor(result.terminal),
       warnings,
       request: { body: request },
@@ -60,6 +61,8 @@ class OpenAIOAuthLanguageModel implements LanguageModelV4 {
         async start(controller) {
           controller.enqueue({ type: 'stream-start', warnings });
           const textIds = new Set<string>();
+          const functionCalls = new Map<string, { callId: string; name: string; arguments: string }>();
+          let hasFunctionCalls = false;
           let metadataSent = false;
           let completed = false;
           iterator = events;
@@ -77,11 +80,32 @@ class OpenAIOAuthLanguageModel implements LanguageModelV4 {
                 controller.enqueue({ type: 'text-delta', id, delta: event.delta });
               }
               if (event.type === 'response.output_text.done' && typeof event.item_id === 'string' && textIds.delete(event.item_id)) controller.enqueue({ type: 'text-end', id: event.item_id });
+              if (event.type === 'response.output_item.added') {
+                const item = event.item;
+                if (isFunctionCall(item)) {
+                  functionCalls.set(item.id, { callId: item.call_id, name: item.name, arguments: item.arguments });
+                  controller.enqueue({ type: 'tool-input-start', id: item.call_id, toolName: item.name });
+                }
+              }
+              if (event.type === 'response.function_call_arguments.delta' && typeof event.item_id === 'string' && typeof event.delta === 'string') {
+                const call = functionCalls.get(event.item_id);
+                if (call) { call.arguments += event.delta; controller.enqueue({ type: 'tool-input-delta', id: call.callId, delta: event.delta }); }
+              }
+              if (event.type === 'response.function_call_arguments.done' && typeof event.item_id === 'string' && typeof event.arguments === 'string') {
+                const call = functionCalls.get(event.item_id);
+                if (!call) throw new OpenAIOAuthError('OpenAI completed function-call arguments without a function-call item.');
+                call.arguments = event.arguments;
+                controller.enqueue({ type: 'tool-input-end', id: call.callId });
+                controller.enqueue({ type: 'tool-call', toolCallId: call.callId, toolName: call.name, input: call.arguments });
+                functionCalls.delete(event.item_id);
+                hasFunctionCalls = true;
+              }
               if (event.type === 'response.completed') {
+                if (functionCalls.size) throw new OpenAIOAuthError('OpenAI completed with incomplete function-call arguments.');
                 for (const id of textIds) controller.enqueue({ type: 'text-end', id });
                 textIds.clear();
                 const result = event.response as ResponseTerminal;
-                controller.enqueue({ type: 'finish', usage: usageFor(result), finishReason: finishReason(result), providerMetadata: providerMetadata(result) });
+                controller.enqueue({ type: 'finish', usage: usageFor(result), finishReason: finishReason(result, hasFunctionCalls), providerMetadata: providerMetadata(result) });
                 completed = true;
                 break;
               }
@@ -123,8 +147,8 @@ function responseMetadata(response: ResponseTerminal): LanguageModelV4StreamPart
   };
 }
 
-function finishReason(terminal: ResponseTerminal) {
-  return { unified: terminal.status === 'incomplete' ? 'length' as const : 'stop' as const, raw: terminal.status };
+function finishReason(terminal: ResponseTerminal, hasFunctionCall = false) {
+  return { unified: terminal.status === 'incomplete' ? 'length' as const : hasFunctionCall ? 'tool-calls' as const : 'stop' as const, raw: terminal.status };
 }
 
 function usageFor(terminal: ResponseTerminal) {
@@ -145,12 +169,22 @@ function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: st
   const input: unknown[] = [];
   for (const message of options.prompt) {
     if (message.role === 'system') { instructions.push(message.content); continue; }
-    if (message.role !== 'user' && message.role !== 'assistant') throw new OpenAIOAuthError(`${message.role} messages are not supported in v0.1.`);
-    const parts = message.content.map(part => {
-      if (part.type !== 'text') throw new OpenAIOAuthError(`${part.type} input is not supported in v0.1.`);
-      return { type: message.role === 'user' ? 'input_text' : 'output_text', text: part.text };
-    });
-    input.push({ role: message.role, content: parts });
+    if (message.role === 'tool') {
+      for (const part of message.content) input.push(functionOutput(part));
+      continue;
+    }
+    let textParts: unknown[] = [];
+    const flushText = () => {
+      if (textParts.length) input.push({ role: message.role, content: textParts });
+      textParts = [];
+    };
+    for (const part of message.content) {
+      if (part.type === 'text') textParts.push({ type: message.role === 'user' ? 'input_text' : 'output_text', text: part.text });
+      else if (message.role === 'assistant' && part.type === 'tool-call') { flushText(); input.push(functionCall(part)); }
+      else if (message.role === 'assistant' && part.type === 'tool-result') { flushText(); input.push(functionOutput(part)); }
+      else throw new OpenAIOAuthError(`${part.type} input is not supported.`);
+    }
+    flushText();
   }
   return { ...(instructions.length ? { instructions: instructions.join('\n\n') } : {}), input };
 }
@@ -158,9 +192,11 @@ function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: st
 function requestFor(model: string, options: LanguageModelV4CallOptions): { request: Record<string, unknown>; warnings: SharedV4Warning[] } {
   const { instructions, input } = convertPrompt(options);
   const reasoning = reasoningOption(model, options.providerOptions?.['openai-oauth']);
+  const tools = functionTools(options.tools);
+  const toolChoice = toolChoiceFor(options.toolChoice, tools);
   return {
-    request: { model, input, ...(instructions ? { instructions } : {}), ...(reasoning ? { reasoning } : {}), store: false, stream: true },
-    warnings: unsupportedWarnings(options, reasoning !== undefined),
+    request: { model, input, ...(instructions ? { instructions } : {}), ...(reasoning ? { reasoning } : {}), ...(tools.length ? { tools } : {}), ...(toolChoice ? { tool_choice: toolChoice } : {}), store: false, stream: true },
+    warnings: unsupportedWarnings(options, reasoning !== undefined, tools.length),
   };
 }
 
@@ -176,12 +212,12 @@ function reasoningOption(model: string, value: unknown): OpenAIOAuthProviderOpti
   return { effort: 'medium' };
 }
 
-function unsupportedWarnings(options: LanguageModelV4CallOptions, hasProviderReasoning: boolean): SharedV4Warning[] {
+function unsupportedWarnings(options: LanguageModelV4CallOptions, hasProviderReasoning: boolean, functionToolCount: number): SharedV4Warning[] {
   const unsupported: Array<[string, unknown]> = [
     ['maxOutputTokens', options.maxOutputTokens], ['temperature', options.temperature], ['stopSequences', options.stopSequences],
     ['topP', options.topP], ['topK', options.topK], ['presencePenalty', options.presencePenalty], ['frequencyPenalty', options.frequencyPenalty],
     ['seed', options.seed], ['reasoning', options.reasoning && options.reasoning !== 'provider-default'], ['responseFormat', options.responseFormat && options.responseFormat.type !== 'text'],
-    ['tools', options.tools], ['toolChoice', options.toolChoice && options.toolChoice.type !== 'auto'], ['includeRawChunks', options.includeRawChunks],
+    ['tools', options.tools && (options.tools.length === 0 || functionToolCount !== options.tools.length) ? options.tools : undefined], ['includeRawChunks', options.includeRawChunks],
   ];
   const warnings = unsupported.filter(([, value]) => value !== undefined && value !== false).map(([feature]) => ({ type: 'unsupported' as const, feature }));
   if (options.providerOptions?.['openai-oauth'] !== undefined && !hasProviderReasoning) warnings.push({ type: 'unsupported', feature: "providerOptions['openai-oauth']" });
@@ -202,3 +238,63 @@ function providerMetadata(terminal: ResponseTerminal) {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
+
+function functionTools(tools: LanguageModelV4CallOptions['tools']): Array<Record<string, unknown>> {
+  if (!tools) return [];
+  return tools.filter((tool): tool is Extract<typeof tool, { type: 'function' }> => tool.type === 'function').map(tool => ({ type: 'function', name: tool.name, ...(tool.description ? { description: tool.description } : {}), parameters: tool.inputSchema }));
+}
+
+function toolChoiceFor(choice: LanguageModelV4CallOptions['toolChoice'], tools: Array<Record<string, unknown>>): unknown {
+  if (!choice || choice.type === 'auto') return choice?.type === 'auto' && tools.length ? 'auto' : undefined;
+  if (!tools.length) throw new OpenAIOAuthError('toolChoice requires at least one supported function tool.');
+  if (choice.type === 'none' || choice.type === 'required') return choice.type;
+  if (choice.type === 'tool') {
+    if (!tools.some(tool => tool.name === choice.toolName)) throw new OpenAIOAuthError(`toolChoice references unknown function tool '${choice.toolName}'.`);
+    return { type: 'function', name: choice.toolName };
+  }
+  throw new OpenAIOAuthError('Unsupported toolChoice.');
+}
+
+function functionCall(part: { toolCallId: string; toolName: string; input: unknown }): Record<string, unknown> {
+  return { type: 'function_call', call_id: part.toolCallId, name: part.toolName, arguments: JSON.stringify(part.input) };
+}
+
+function functionOutput(part: unknown): Record<string, unknown> {
+  if (!isRecord(part) || part.type !== 'tool-result' || typeof part.toolCallId !== 'string') throw new OpenAIOAuthError('Only function-tool results are supported.');
+  const output = part.output as { type?: string; value?: unknown };
+  if (output.type === 'text' && typeof output.value === 'string') return { type: 'function_call_output', call_id: part.toolCallId, output: output.value };
+  if (output.type === 'json') return { type: 'function_call_output', call_id: part.toolCallId, output: JSON.stringify(output.value) };
+  throw new OpenAIOAuthError('Only text and JSON function-tool results are supported.');
+}
+
+function isFunctionCall(value: unknown): value is { id: string; type: 'function_call'; call_id: string; name: string; arguments: string } {
+  return isRecord(value) && value.type === 'function_call' && typeof value.id === 'string' && typeof value.call_id === 'string' && typeof value.name === 'string' && typeof value.arguments === 'string';
+}
+
+function contentFromEvents(events: Record<string, unknown>[]): LanguageModelV4Content[] {
+  const content: LanguageModelV4Content[] = [];
+  const text = new Map<string, { type: 'text'; text: string }>();
+  const calls = new Map<string, { callId: string; name: string; arguments: string }>();
+  for (const event of events) {
+    if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') {
+      const id = typeof event.item_id === 'string' ? event.item_id : 'text-0';
+      let item = text.get(id);
+      if (!item) { item = { type: 'text', text: '' }; text.set(id, item); content.push(item); }
+      item.text += event.delta;
+    }
+    if (event.type === 'response.output_item.added' && isFunctionCall(event.item)) calls.set(event.item.id, { callId: event.item.call_id, name: event.item.name, arguments: event.item.arguments });
+    if (event.type === 'response.function_call_arguments.delta' && typeof event.item_id === 'string' && typeof event.delta === 'string') {
+      const call = calls.get(event.item_id);
+      if (call) call.arguments += event.delta;
+    }
+    if (event.type === 'response.function_call_arguments.done' && typeof event.item_id === 'string' && typeof event.arguments === 'string') {
+      const call = calls.get(event.item_id);
+      if (!call) throw new OpenAIOAuthError('OpenAI completed function-call arguments without a function-call item.');
+      call.arguments = event.arguments;
+      content.push({ type: 'tool-call', toolCallId: call.callId, toolName: call.name, input: call.arguments });
+      calls.delete(event.item_id);
+    }
+  }
+  if (calls.size) throw new OpenAIOAuthError('OpenAI completed with incomplete function-call arguments.');
+  return content;
+}

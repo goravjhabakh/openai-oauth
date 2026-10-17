@@ -406,6 +406,29 @@ identity data, request bodies, or response text were retained.
   reasoning summary request, reasoning-text SSE events, other effort values,
   or any other model. Those remain unavailable in the provider.
 
+### Live v0.4 validation
+
+Validated locally with the same consenting account on 2026-10-18. No tokens,
+identity data, tool arguments, tool outputs, or model text were retained.
+
+- The public OAuth `/v1/responses` route accepted ordinary top-level function
+  tools with `{ type, name, description, parameters }`, `store: false`, and
+  `stream: true` on `gpt-5.6-terra`.
+- `auto`, `none`, `required`, and named function selection
+  (`{ type: "function", name }`) were accepted. The provider maps the matching
+  AI SDK choices and rejects a named choice that does not name a supplied
+  function before sending a request.
+- The stream supplied a `function_call` output item with distinct item `id` and
+  `call_id`, argument deltas keyed by item ID, `arguments.done` with the final
+  serialized JSON, and a terminal completion. The adapter uses `call_id` as the
+  AI SDK tool-call ID and only emits the completed call after `arguments.done`.
+- A follow-up request containing the original `function_call` and matching
+  `function_call_output` by `call_id` completed. This confirms complete-history
+  client tool result continuation without `previous_response_id`.
+- Parallel calls, namespaced tools, `additional_tools`, strict mode, provider
+  tools, and non-text/non-JSON result outputs were not tested and remain
+  unsupported.
+
 ### v0.2 implementation status
 
 v0.2 implements and mock-validates incremental text streaming, response

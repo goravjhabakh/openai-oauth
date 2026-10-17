@@ -20,12 +20,12 @@ export class ResponsesClient {
     return { headers: response.headers, events: parseSse(response.body, signal) };
   }
 
-  async generate(body: unknown, signal?: AbortSignal): Promise<{ terminal: ResponseTerminal; headers: Headers; text: string }> {
+  async generate(body: unknown, signal?: AbortSignal): Promise<{ terminal: ResponseTerminal; headers: Headers; events: Record<string, unknown>[] }> {
     const { headers, events } = await this.stream(body, signal);
-    let text = '';
+    const collected: Record<string, unknown>[] = [];
     let terminal: ResponseTerminal | undefined;
     for await (const event of events) {
-      if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') text += event.delta;
+      collected.push(event);
       if (event.type === 'response.completed') terminal = event.response as ResponseTerminal;
       if (event.type === 'response.failed' || event.type === 'response.incomplete') {
         throw errorFromEvent(event, headers.get('x-request-id') ?? undefined);
@@ -33,7 +33,7 @@ export class ResponsesClient {
       if (event.type === 'error') throw errorFromEvent(event, headers.get('x-request-id') ?? undefined);
     }
     if (!terminal) throw new OpenAIOAuthError('OpenAI stream ended before response.completed.', { requestId: headers.get('x-request-id') ?? undefined });
-    return { terminal, headers, text };
+    return { terminal, headers, events: collected };
   }
 }
 
