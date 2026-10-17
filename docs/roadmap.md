@@ -21,7 +21,7 @@ Before implementation, understand:
 - basic errors
 - usage data where available
 
-## v0.2 — Streaming
+## v0.2 — Streaming — Implementation Complete; Account-Backed Validation Pending
 
 - `streamText()`
 - incremental stream parsing

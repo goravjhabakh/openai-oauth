@@ -380,6 +380,24 @@ not committed.
 Not yet live-validated: concurrent cross-process refresh, terminal stream
 failures/EOF, admission errors, and a second account or plan.
 
+### Account-backed validation preference
+
+For future live/account-backed validation, prefer `gpt-5.6-terra` with a
+medium reasoning-effort setting when that setting is within the capability
+being tested. This is a test-account preference discovered from the current
+account's model catalog, not a package default, entitlement guarantee, or
+hard-coded model selection rule. v0.2 does not send reasoning controls, so its
+streaming validation must use the model preference without forwarding effort.
+
+### v0.2 implementation status
+
+v0.2 implements and mock-validates incremental text streaming, response
+metadata and terminal usage mapping, premature-EOF errors, and consumer
+cancellation. It has not yet been validated against the current account. Before
+calling the release complete, capture sanitized account-backed fixtures for the
+complete event sequence, terminal usage/metadata, cancellation, terminal
+failures, and interrupted streams.
+
 1. **OAuth registration and validation**
    - Complete first registration with a generated host ID.
    - Record callback fields, token fields, scopes, expiry, and
