@@ -79,7 +79,8 @@ const { text } = await generateText({
 library's name. `signIn()` starts a temporary `127.0.0.1` callback listener and
 waits for browser consent. Call it before model discovery or generation. If a
 browser is unavailable, fix that local environment and call it again; the
-provider never silently reauthorizes or changes billing sources.
+provider never silently reauthorizes or changes billing sources. After loading,
+the callback page clears OAuth query parameters from its browser URL.
 
 ## Streaming
 

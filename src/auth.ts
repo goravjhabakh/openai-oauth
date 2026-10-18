@@ -182,7 +182,7 @@ interface CallbackResult {
   respond: (status: 'success' | 'error') => void;
 }
 
-function createCallbackServer() {
+export function createCallbackServer() {
   let resolve: ((value: CallbackResult) => void) | undefined;
   let reject: ((reason: Error) => void) | undefined;
   const result = new Promise<CallbackResult>((res, rej) => { resolve = res; reject = rej; });
@@ -193,10 +193,8 @@ function createCallbackServer() {
       params: url.searchParams,
       respond(status) {
         if (response.writableEnded) return;
-        response.writeHead(status === 'success' ? 200 : 400, {
-          'content-type': 'text/html; charset=utf-8',
-          'cache-control': 'no-store',
-        }).end(callbackPage(status));
+        const callbackResponse = callbackPageResponse(status);
+        response.writeHead(callbackResponse.status, callbackResponse.headers).end(callbackResponse.body);
       },
     });
   });
@@ -208,6 +206,22 @@ function createCallbackServer() {
   };
 }
 
+function callbackPageResponse(status: 'success' | 'error') {
+  return {
+    status: status === 'success' ? 200 : 400,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store',
+      'referrer-policy': 'no-referrer',
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    },
+    body: callbackPage(status),
+  };
+}
+
+
 function callbackPage(status: 'success' | 'error'): string {
   const success = status === 'success';
   const title = success ? 'Sign-in complete' : 'Sign-in could not be completed';
@@ -215,5 +229,6 @@ function callbackPage(status: 'success' | 'error'): string {
     ? 'Your account has been connected. You can safely close this window and return to the app.'
     : 'Your account was not connected. Return to the app and try again.';
   const icon = success ? '&#10003;' : '!';
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f7fb;color:#1d2433;font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{box-sizing:border-box;width:min(92vw,460px);padding:40px;border:1px solid #e3e6ed;border-radius:16px;background:#fff;box-shadow:0 12px 32px #19203314;text-align:center}.icon{width:48px;height:48px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:${success ? '#e8f7ee' : '#fff0f0'};color:${success ? '#137333' : '#b3261e'};font-size:28px;font-weight:700}h1{margin:0 0 10px;font-size:24px;letter-spacing:-.02em}p{margin:0;color:#566074}</style></head><body><main class="card"><div class="icon" aria-hidden="true">${icon}</div><h1>${title}</h1><p>${message}</p></main></body></html>`;
+
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark"><title>${title}</title><style>:root{color-scheme:light dark;--bg:#fff;--text:#0d0d0d;--muted:#6b6b6b;--status-bg:#f4f4f4;--success:#0d0d0d;--error:#d00e17}@media(prefers-color-scheme:dark){:root{--bg:#212121;--text:#ececec;--muted:#b4b4b4;--status-bg:#2f2f2f;--success:#fff;--error:#ff6b6b}}*{box-sizing:border-box}html,body{margin:0;min-height:100%}body{min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--text);font:16px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}main{width:min(100%,420px);text-align:center}.icon{width:48px;height:48px;margin:0 auto 24px;display:grid;place-items:center;border-radius:50%;background:var(--status-bg);color:${success ? 'var(--success)' : 'var(--error)'};font-size:24px;font-weight:600;line-height:1}h1{margin:0 0 10px;font-size:24px;line-height:1.25;font-weight:600;letter-spacing:-.02em}p{margin:0 auto;max-width:380px;color:var(--muted);font-size:15px;line-height:1.55}.hint{margin-top:24px;color:var(--muted);font-size:13px}</style></head><body><main><div class="icon" aria-hidden="true">${icon}</div><h1>${title}</h1><p>${message}</p><div class="hint">You can close this window.</div></main><script>window.addEventListener('load',()=>{if(window.location.search)history.replaceState(null,'',window.location.pathname+window.location.hash)});</script></body></html>`;
 }

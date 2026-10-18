@@ -1,7 +1,7 @@
 {
   "name": "@goravjhabakh/openai-oauth",
   "description": "OpenAI OAuth provider for the Vercel AI SDK",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "module",
   "packageManager": "pnpm@12.8.1",
   "main": "./dist/index.js",

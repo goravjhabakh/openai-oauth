@@ -53,8 +53,8 @@ GitHub-hosted runner, and requires the tag to equal `v${package.json.version}`.
 3. Create and push the matching annotated tag. For the current release:
 
    ```bash
-   git tag -a v1.0.0 -m "v1.0.0"
-   git push origin v1.0.0
+   git tag -a v1.0.1 -m "v1.0.1"
+   git push origin v1.0.1
    ```
 
 4. Open the **Publish to npm** workflow run and approve its `npm` environment.
@@ -71,7 +71,7 @@ GitHub-hosted runner, and requires the tag to equal `v${package.json.version}`.
 
 5. Confirm the npm package page reports the expected version, public access,
    repository metadata, and provenance. Then create the GitHub Release from the
-   already-published `v1.0.0` tag.
+   already-published `v1.0.1` tag.
 
 If npm rejects OIDC authentication, verify the exact repository, workflow
 filename, environment name, `id-token: write` permission, and GitHub-hosted
