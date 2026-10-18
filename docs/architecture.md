@@ -182,4 +182,9 @@ top-level Responses function-tool representation; it retains each Responses
 `function_call` and `function_call_output` input items. Provider-hosted tools,
 parallel calls, and unvalidated tool encodings remain unavailable.
 
+v0.5 maps `Output.object()` through Responses `text.format` JSON Schema and
+maps only user PNG and `text/plain` file parts with fixture-proven URL/data
+forms. These mappings are gated to `gpt-5.6-terra`; provider references and
+unvalidated media types remain explicit local errors.
+
 Streaming APIs, richer inputs, and other capabilities are added incrementally in later versions.

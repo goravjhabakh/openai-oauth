@@ -51,12 +51,15 @@ If the backend supports the required behavior cleanly:
 - streamed argument and completed tool-call mapping
 - complete-history tool-result continuation
 
-## v0.5 — Richer Inputs and Output
+## v0.5 — Richer Inputs and Output — Complete
 
 - structured output
 - image input
 - file input where supported
 - additional metadata where useful
+
+The provider supports only the account-backed validated `gpt-5.6-terra` forms:
+JSON-schema output, PNG URL/data images, and plain-text URL/inline inputs.
 
 ## v1.0 — Stable Language Model Provider
 

@@ -136,7 +136,7 @@ function modelCapabilities(id: string): OpenAIModelCatalogEntry['capabilities'] 
     filesUpload: 'advertised', audioVideo: 'advertised', imageGeneration: 'advertised', fileSearch: 'advertised',
     codeInterpreter: 'advertised', computerUse: 'advertised', hostedMcp: 'advertised', toolSearch: 'advertised',
     persistentResponses: 'advertised', reasoning: id === 'gpt-5.6-terra' ? 'validated' : 'unknown',
-    tools: 'unknown', images: 'unknown', files: 'unknown', webSearch: 'unknown', jsonSchema: 'unknown', detailedUsage: 'unknown',
+    tools: 'unknown', images: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', files: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', webSearch: 'unknown', jsonSchema: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', detailedUsage: 'unknown',
   };
 }
 

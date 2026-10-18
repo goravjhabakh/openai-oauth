@@ -68,6 +68,45 @@ describe('Responses SSE', () => {
     expect((await streamed.stream.getReader().read()).value).toEqual({ type: 'stream-start', warnings: generated.warnings });
   });
 
+  it('maps fixture-proven structured output and user image/file forms', async () => {
+    const store = new FileCredentialStore(`${process.env.TEMP ?? '.'}/openai-oauth-test-${crypto.randomUUID()}.json`);
+    await store.save('test', { clientId: 'client', hostId: 'host', identity: { issuer: 'https://auth.openai.com', sub: 'sub' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'] });
+    const bodies: Record<string, unknown>[] = [];
+    const provider = createOpenAIOAuth({ agentName: 'Test app', hostId: 'host', credentialStore: store, credentialKey: 'test', openAuthorizationUrl() {}, fetch: async (_url, init) => {
+      bodies.push(JSON.parse(String(init?.body)));
+      return new Response('data: {"type":"response.output_text.delta","delta":"{\\"ok\\":true}"}\n\ndata: {"type":"response.completed","response":{"status":"completed"}}\n\n');
+    } });
+    const schema = { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false };
+    const options = { responseFormat: { type: 'json' as const, schema, name: 'answer', description: 'A result.' }, prompt: [{ role: 'user' as const, content: [
+      { type: 'text' as const, text: 'Inspect each input.' },
+      { type: 'file' as const, mediaType: 'image/png', data: { type: 'data' as const, data: 'aGVsbG8=' } },
+      { type: 'file' as const, mediaType: 'text/plain', filename: 'note.txt', data: { type: 'text' as const, text: 'hello' } },
+      { type: 'file' as const, mediaType: 'text/plain', data: { type: 'url' as const, url: new URL('https://example.com/note.txt') } },
+    ] }] };
+    const generated = await provider('gpt-5.6-terra').doGenerate(options);
+    const streamed = await provider('gpt-5.6-terra').doStream(options);
+    expect(generated.warnings).toEqual([]);
+    expect((await streamed.stream.getReader().read()).value).toEqual({ type: 'stream-start', warnings: [] });
+    expect(bodies[0]).toMatchObject({
+      text: { format: { type: 'json_schema', name: 'answer', description: 'A result.', schema, strict: true } },
+      input: [{ role: 'user', content: [
+        { type: 'input_text', text: 'Inspect each input.' },
+        { type: 'input_image', image_url: 'data:image/png;base64,aGVsbG8=' },
+        { type: 'input_file', filename: 'note.txt', file_data: 'data:text/plain;base64,aGVsbG8=' },
+        { type: 'input_file', file_url: 'https://example.com/note.txt' },
+      ] }],
+    });
+  });
+
+  it('rejects unvalidated file forms and invalid structured output locally', async () => {
+    const store = new FileCredentialStore(`${process.env.TEMP ?? '.'}/openai-oauth-test-${crypto.randomUUID()}.json`);
+    await store.save('test', { clientId: 'client', hostId: 'host', identity: { issuer: 'https://auth.openai.com', sub: 'sub' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'] });
+    const provider = createOpenAIOAuth({ agentName: 'Test app', hostId: 'host', credentialStore: store, credentialKey: 'test', openAuthorizationUrl() {}, fetch: async () => { throw new Error('must not fetch'); } });
+    await expect(provider('gpt-5.6-terra').doGenerate({ responseFormat: { type: 'json' }, prompt: [] })).rejects.toThrow('requires an object JSON Schema');
+    await expect(provider('gpt-5.6-terra').doGenerate({ prompt: [{ role: 'user', content: [{ type: 'file', mediaType: 'image/jpeg', data: { type: 'data', data: 'aGVsbG8=' } }] }] })).rejects.toThrow('not validated');
+    await expect(provider('model').doGenerate({ prompt: [{ role: 'assistant', content: [{ type: 'file', mediaType: 'image/png', data: { type: 'data', data: 'aGVsbG8=' } }] }] })).rejects.toThrow('not supported');
+  });
+
   it('maps Responses SSE events for streamText', async () => {
     const store = new FileCredentialStore(`${process.env.TEMP ?? '.'}/openai-oauth-test-${crypto.randomUUID()}.json`);
     await store.save('test', { clientId: 'client', hostId: 'host', identity: { issuer: 'https://auth.openai.com', sub: 'sub' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'] });

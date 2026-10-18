@@ -23,7 +23,8 @@ export function createOpenAIOAuth(options: OpenAIOAuthOptions): OpenAIOAuthProvi
 class OpenAIOAuthLanguageModel implements LanguageModelV4 {
   readonly specificationVersion = 'v4' as const;
   readonly provider = 'openai-oauth';
-  readonly supportedUrls = {};
+  /** The OAuth Responses route accepts externally hosted image and file URLs directly. */
+  readonly supportedUrls = { '*/*': [/^https?:\/\//] };
   private readonly responses: ResponsesClient;
 
   constructor(readonly modelId: string, auth: OpenAIOAuth) { this.responses = new ResponsesClient({ accessToken: () => auth.accessToken(), fetch: auth.requestFetch }); }
@@ -164,7 +165,9 @@ function streamError(event: Record<string, unknown>, headers: Headers): OpenAIOA
   return errorFromEvent(event, headers.get('x-request-id') ?? undefined);
 }
 
-function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: string; input: unknown[] } {
+const V05_VALIDATED_MODEL = 'gpt-5.6-terra';
+
+function convertPrompt(model: string, options: LanguageModelV4CallOptions): { instructions?: string; input: unknown[] } {
   const instructions: string[] = [];
   const input: unknown[] = [];
   for (const message of options.prompt) {
@@ -180,6 +183,7 @@ function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: st
     };
     for (const part of message.content) {
       if (part.type === 'text') textParts.push({ type: message.role === 'user' ? 'input_text' : 'output_text', text: part.text });
+      else if (message.role === 'user' && part.type === 'file') textParts.push(inputFile(model, part));
       else if (message.role === 'assistant' && part.type === 'tool-call') { flushText(); input.push(functionCall(part)); }
       else if (message.role === 'assistant' && part.type === 'tool-result') { flushText(); input.push(functionOutput(part)); }
       else throw new OpenAIOAuthError(`${part.type} input is not supported.`);
@@ -190,12 +194,13 @@ function convertPrompt(options: LanguageModelV4CallOptions): { instructions?: st
 }
 
 function requestFor(model: string, options: LanguageModelV4CallOptions): { request: Record<string, unknown>; warnings: SharedV4Warning[] } {
-  const { instructions, input } = convertPrompt(options);
+  const { instructions, input } = convertPrompt(model, options);
   const reasoning = reasoningOption(model, options.providerOptions?.['openai-oauth']);
   const tools = functionTools(options.tools);
   const toolChoice = toolChoiceFor(options.toolChoice, tools);
+  const text = structuredOutput(model, options.responseFormat);
   return {
-    request: { model, input, ...(instructions ? { instructions } : {}), ...(reasoning ? { reasoning } : {}), ...(tools.length ? { tools } : {}), ...(toolChoice ? { tool_choice: toolChoice } : {}), store: false, stream: true },
+    request: { model, input, ...(instructions ? { instructions } : {}), ...(reasoning ? { reasoning } : {}), ...(text ? { text } : {}), ...(tools.length ? { tools } : {}), ...(toolChoice ? { tool_choice: toolChoice } : {}), store: false, stream: true },
     warnings: unsupportedWarnings(options, reasoning !== undefined, tools.length),
   };
 }
@@ -216,7 +221,7 @@ function unsupportedWarnings(options: LanguageModelV4CallOptions, hasProviderRea
   const unsupported: Array<[string, unknown]> = [
     ['maxOutputTokens', options.maxOutputTokens], ['temperature', options.temperature], ['stopSequences', options.stopSequences],
     ['topP', options.topP], ['topK', options.topK], ['presencePenalty', options.presencePenalty], ['frequencyPenalty', options.frequencyPenalty],
-    ['seed', options.seed], ['reasoning', options.reasoning && options.reasoning !== 'provider-default'], ['responseFormat', options.responseFormat && options.responseFormat.type !== 'text'],
+    ['seed', options.seed], ['reasoning', options.reasoning && options.reasoning !== 'provider-default'],
     ['tools', options.tools && (options.tools.length === 0 || functionToolCount !== options.tools.length) ? options.tools : undefined], ['includeRawChunks', options.includeRawChunks],
   ];
   const warnings = unsupported.filter(([, value]) => value !== undefined && value !== false).map(([feature]) => ({ type: 'unsupported' as const, feature }));
@@ -238,6 +243,53 @@ function providerMetadata(terminal: ResponseTerminal) {
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === 'object' && value !== null && !Array.isArray(value); }
+
+function structuredOutput(model: string, format: LanguageModelV4CallOptions['responseFormat']): Record<string, unknown> | undefined {
+  if (!format || format.type === 'text') return undefined;
+  if (model !== V05_VALIDATED_MODEL) throw new OpenAIOAuthError(`JSON-schema output is only validated for ${V05_VALIDATED_MODEL}.`);
+  if (!format.schema || !isRecord(format.schema)) throw new OpenAIOAuthError('responseFormat JSON output requires an object JSON Schema.');
+  if (format.name !== undefined && (!format.name.trim() || format.name.length > 64)) throw new OpenAIOAuthError('responseFormat.name must be a non-empty string of at most 64 characters.');
+  if (format.description !== undefined && typeof format.description !== 'string') throw new OpenAIOAuthError('responseFormat.description must be a string.');
+  let schema: unknown;
+  try { schema = JSON.parse(JSON.stringify(format.schema)); }
+  catch { throw new OpenAIOAuthError('responseFormat.schema must be JSON-serializable.'); }
+  return { format: { type: 'json_schema', name: format.name ?? 'response', ...(format.description ? { description: format.description } : {}), schema, strict: true } };
+}
+
+function inputFile(model: string, part: { mediaType: string; filename?: string; data: unknown }): Record<string, unknown> {
+  if (model !== V05_VALIDATED_MODEL) throw new OpenAIOAuthError(`Image and file input is only validated for ${V05_VALIDATED_MODEL}.`);
+  if (!isRecord(part.data) || typeof part.data.type !== 'string') throw new OpenAIOAuthError('File input has invalid data.');
+  const image = part.mediaType === 'image/png';
+  if (part.mediaType.startsWith('image/') && !image) throw new OpenAIOAuthError(`Image media type '${part.mediaType}' is not validated; only image/png is supported.`);
+  if (!image && part.mediaType !== 'text/plain') throw new OpenAIOAuthError(`File media type '${part.mediaType}' is not validated; only text/plain is supported.`);
+  if (part.data.type === 'reference') throw new OpenAIOAuthError('Provider file references are not supported.');
+  if (part.data.type === 'url') {
+    const url = typeof part.data.originalUrl === 'string' ? part.data.originalUrl : part.data.url instanceof URL ? part.data.url.href : undefined;
+    if (!url || !/^https?:\/\//i.test(url)) throw new OpenAIOAuthError('Only HTTP(S) file URLs are supported.');
+    return image ? { type: 'input_image', image_url: url } : { type: 'input_file', file_url: url, ...(part.filename ? { filename: part.filename } : {}) };
+  }
+  if (part.data.type === 'text') {
+    if (image) throw new OpenAIOAuthError('Images require base64 data or an HTTP(S) URL.');
+    if (typeof part.data.text !== 'string') throw new OpenAIOAuthError('Inline file text must be a string.');
+    return encodedFile(part, Buffer.from(part.data.text).toString('base64'));
+  }
+  if (part.data.type === 'data') {
+    const value = part.data.data;
+    const base64 = value instanceof Uint8Array ? Buffer.from(value).toString('base64') : typeof value === 'string' ? value : undefined;
+    if (!base64 || !isBase64(base64)) throw new OpenAIOAuthError('Inline file data must be a non-empty base64 string or Uint8Array.');
+    return encodedFile(part, base64);
+  }
+  throw new OpenAIOAuthError(`File data form '${part.data.type}' is not supported.`);
+}
+
+function encodedFile(part: { mediaType: string; filename?: string }, base64: string): Record<string, unknown> {
+  const dataUrl = `data:${part.mediaType};base64,${base64}`;
+  return part.mediaType === 'image/png'
+    ? { type: 'input_image', image_url: dataUrl }
+    : { type: 'input_file', file_data: dataUrl, ...(part.filename ? { filename: part.filename } : {}) };
+}
+
+function isBase64(value: string) { return value.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(value); }
 
 function functionTools(tools: LanguageModelV4CallOptions['tools']): Array<Record<string, unknown>> {
   if (!tools) return [];

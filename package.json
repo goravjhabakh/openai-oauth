@@ -28,7 +28,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "validate:live": "pnpm build && node scripts/validate-live-v0.1.mjs",
-    "validate:live:v0.4": "pnpm build && node scripts/validate-live-v0.4.mjs"
+    "validate:live:v0.4": "pnpm build && node scripts/validate-live-v0.4.mjs",
+    "validate:live:v0.5": "pnpm build && node scripts/validate-live-v0.5.mjs"
   },
   "keywords": [],
   "author": "",

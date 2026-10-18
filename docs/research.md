@@ -427,7 +427,26 @@ identity data, tool arguments, tool outputs, or model text were retained.
   client tool result continuation without `previous_response_id`.
 - Parallel calls, namespaced tools, `additional_tools`, strict mode, provider
   tools, and non-text/non-JSON result outputs were not tested and remain
-  unsupported.
+unsupported.
+
+### Live v0.5 validation
+
+Validated locally with the same consenting account on 2026-10-18. No tokens,
+request bodies, file contents, response text, or request IDs were retained.
+
+- `gpt-5.6-terra` accepted Responses `text: { format: { type: "json_schema",
+  name, schema, strict: true } }` with `store: false` and `stream: true` in
+  both aggregated and incremental paths. A deliberately non-strict compatible
+  schema lacking `additionalProperties: false` was rejected with HTTP 400.
+- The model accepted both a PNG `input_image.image_url` and PNG data URL in
+  both paths. The adapter therefore exposes only `image/png`, not an inferred
+  image-media-type family.
+- The model accepted both an `input_file.file_url` and inline text represented
+  as a `text/plain` base64 data URL in both paths. The adapter exposes only
+  `text/plain`; it does not upload files or accept provider references.
+- Each successful request completed with the ordinary text-delta SSE sequence
+  and terminal `response.completed`. JSON parsing and schema validation remain
+  AI SDK responsibilities; the provider does not infer conformance from text.
 
 ### v0.2 implementation status
 
