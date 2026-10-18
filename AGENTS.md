@@ -67,7 +67,7 @@ Prefer inspecting the current installed AI SDK version and its source/docs over 
 ## Repository Conventions
 
 - Package manager: pnpm
-- Package: `@gorav/openai-oauth`
+- Package: `@goravjhabakh/openai-oauth`
 - Source: `src/`
 - Documentation: `docs/`
 

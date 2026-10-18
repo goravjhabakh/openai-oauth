@@ -7,7 +7,7 @@ remains preview-only.
 
 ## Goal
 
-Build `@gorav/openai-oauth`, a Vercel AI SDK provider that allows users to authenticate with their OpenAI/ChatGPT account instead of requiring a separately billed OpenAI API key.
+Build `@goravjhabakh/openai-oauth`, a Vercel AI SDK provider that allows users to authenticate with their OpenAI/ChatGPT account instead of requiring a separately billed OpenAI API key.
 
 The provider should feel like a normal AI SDK provider, similar in usage to `@ai-sdk/openai`.
 
@@ -23,7 +23,7 @@ This project explores whether the OAuth-backed access used by OpenAI tools such 
 
 ```ts
 import { generateText } from "ai";
-import { openaiOAuth } from "@gorav/openai-oauth";
+import { openaiOAuth } from "@goravjhabakh/openai-oauth";
 
 const { text } = await generateText({
   model: openaiOAuth("supported-model"),
@@ -36,7 +36,7 @@ const { text } = await generateText({
 ```mermaid
 flowchart LR
     App["Developer App"] --> SDK["Vercel AI SDK"]
-    SDK --> Provider["@gorav/openai-oauth"]
+    SDK --> Provider["@goravjhabakh/openai-oauth"]
     Provider --> OAuth["OpenAI OAuth"]
     OAuth --> Backend["OpenAI / Codex Backend"]
 ```

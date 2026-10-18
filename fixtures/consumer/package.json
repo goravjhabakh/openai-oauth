@@ -9,7 +9,7 @@
     "live": "node dist/live.js"
   },
   "dependencies": {
-    "@gorav/openai-oauth": "file:PACKAGE_TARBALL",
+    "@goravjhabakh/openai-oauth": "file:PACKAGE_TARBALL",
     "ai": "^7.0.0"
   },
   "devDependencies": {

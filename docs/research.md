@@ -317,7 +317,7 @@ Distribution requirements and consequences:
 - Treat the protocol as preview/unstable and use semver and release notes to
   identify compatibility changes.
 
-The npm registry returned 404 for `@gorav/openai-oauth` on 2026-10-17, so no
+The npm registry returned 404 for `@goravjhabakh/openai-oauth` on 2026-10-17, so no
 published package currently occupies that exact name. Publication still depends
 on control of the `@gorav` scope. A first scoped public release must be marked
 public. Prefer npm trusted publishing/OIDC and provenance, ensure the public
@@ -528,7 +528,7 @@ failures, and interrupted streams.
    where should its stable host ID live when several apps share the dependency?
    The consuming app, not the library package, should likely own this identity.
 4. **App identity:** The provider factory needs the consuming app's actual name;
-   silently using `@gorav/openai-oauth` would misidentify downstream apps during
+   silently using `@goravjhabakh/openai-oauth` would misidentify downstream apps during
    consent.
 5. **Commercial/hosted consumers:** Package documentation needs a firm support
    boundary for downstream paid or remotely hosted deployments that require
@@ -577,7 +577,7 @@ documentation controls the supported third-party integration path.
 ## Architecture Decisions
 
 - Credential storage: interface + built-in Node file store.
-- Package boundary: one package, `@gorav/openai-oauth`.
+- Package boundary: one package, `@goravjhabakh/openai-oauth`.
 - App/host identity: owned by the consuming application.
 - Dependencies: use `@ai-sdk/provider` and `@ai-sdk/provider-utils`; do not depend on `@ai-sdk/openai` initially.
 

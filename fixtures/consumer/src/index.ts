@@ -15,7 +15,7 @@ import {
   type OpenAIOAuthProviderOptions,
   type OpenAIOAuthRouteCapabilities,
   type OAuthCredentials,
-} from '@gorav/openai-oauth';
+} from '@goravjhabakh/openai-oauth';
 
 const store: CredentialStore = new FileCredentialStore('.private/openai-oauth.json');
 const credentials: OAuthCredentials = {

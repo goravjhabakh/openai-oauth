@@ -1,5 +1,5 @@
 {
-  "name": "@gorav/openai-oauth",
+  "name": "@goravjhabakh/openai-oauth",
   "description": "OpenAI OAuth provider for the Vercel AI SDK",
   "version": "1.0.0",
   "type": "module",

@@ -3,7 +3,7 @@ import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { generateText, isStepCount, jsonSchema, Output, streamText, tool } from 'ai';
-import { createOpenAIOAuth, FileCredentialStore } from '@gorav/openai-oauth';
+import { createOpenAIOAuth, FileCredentialStore } from '@goravjhabakh/openai-oauth';
 
 const execFileAsync = promisify(execFile);
 const privateDirectory = join(process.cwd(), '.private-live');

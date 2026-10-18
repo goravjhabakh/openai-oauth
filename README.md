@@ -1,4 +1,4 @@
-# @gorav/openai-oauth
+# @goravjhabakh/openai-oauth
 
 A Node.js Vercel AI SDK provider that authenticates with an OpenAI/ChatGPT
 account instead of a separately billed OpenAI API key.
@@ -44,17 +44,17 @@ file. Do not commit credentials, host IDs, tokens, or authorization URLs.
 Install the provider and its AI SDK 7 peer dependency:
 
 ```bash
-pnpm add @gorav/openai-oauth ai
+pnpm add @goravjhabakh/openai-oauth ai
 ```
 
 The package is ESM-only and requires Node.js 20 or later. Use only the root
-import, `@gorav/openai-oauth`; subpath and `dist` imports are unsupported.
+import, `@goravjhabakh/openai-oauth`; subpath and `dist` imports are unsupported.
 
 ## Quick start
 
 ```ts
 import { generateText } from 'ai';
-import { createOpenAIOAuth, FileCredentialStore } from '@gorav/openai-oauth';
+import { createOpenAIOAuth, FileCredentialStore } from '@goravjhabakh/openai-oauth';
 
 const openaiOAuth = createOpenAIOAuth({
   agentName: 'My local app',

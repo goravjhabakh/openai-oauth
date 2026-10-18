@@ -2,13 +2,13 @@
 
 ## Overview
 
-`@gorav/openai-oauth` is a Node.js-first Vercel AI SDK provider that authenticates users with OpenAI/ChatGPT OAuth and calls the public OpenAI Responses API directly.
+`@goravjhabakh/openai-oauth` is a Node.js-first Vercel AI SDK provider that authenticates users with OpenAI/ChatGPT OAuth and calls the public OpenAI Responses API directly.
 
 It does not depend on the Codex CLI process or ChatGPT private backend routes.
 
 ```mermaid
 flowchart LR
-    App["Consuming App"] --> Provider["@gorav/openai-oauth"]
+    App["Consuming App"] --> Provider["@goravjhabakh/openai-oauth"]
     Provider --> Auth["OAuth + Credentials"]
     Provider --> Model["AI SDK LanguageModelV4"]
     Auth --> OpenAI["OpenAI Public API"]
@@ -108,7 +108,7 @@ Important constraints:
 Everything ships in one package:
 
 ```text
-@gorav/openai-oauth
+@goravjhabakh/openai-oauth
 ```
 
 Keep internal concerns separated, but do not split them into multiple npm packages initially.

@@ -1,6 +1,6 @@
 # Releasing
 
-This repository publishes `@gorav/openai-oauth` through npm trusted publishing.
+This repository publishes `@goravjhabakh/openai-oauth` through npm trusted publishing.
 The GitHub Actions workflow exchanges its short-lived OIDC identity with npm;
 do not add `NPM_TOKEN`, `NODE_AUTH_TOKEN`, or another long-lived publishing
 credential to the repository or its Actions secrets.
@@ -12,7 +12,7 @@ credential to the repository or its Actions secrets.
 An authorized `@gorav` maintainer must configure the package at npmjs.com:
 
 1. Confirm ownership of the `@gorav` scope and maintainership of
-   `@gorav/openai-oauth`.
+   `@goravjhabakh/openai-oauth`.
 2. In **Package settings → Trusted publishing**, add a GitHub Actions publisher
    with these exact values:
    - Organization or user: `goravjhabakh`
