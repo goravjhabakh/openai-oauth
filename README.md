@@ -171,8 +171,10 @@ await generateText({
 ```
 
 The same model accepts user `image/png` and `text/plain` file parts as HTTP(S)
-URLs or inline data. Other media types, provider file references, file uploads,
-and unsupported history forms fail locally.
+URLs or inline data. For an inline plain-text file, use AI SDK's tagged form
+`data: { type: 'text', text: '...' }`; a bare string is base64 file data.
+Other media types, provider file references, file uploads, and unsupported
+history forms fail locally.
 
 ## Errors and recovery
 
@@ -226,8 +228,10 @@ pnpm release-check
 
 `validate:package` inspects the packed tarball, installs it in an independent
 temporary pnpm consumer, then type-checks and runs offline mock usage through
-the public root exports. Live validation remains opt-in (`pnpm validate:live:v0.5`)
-and must not log credentials, URLs, request bodies, outputs, or request IDs.
+the public root exports. `pnpm validate:consumer:live` runs the same packed
+consumer fixture against a consenting account, performs a browser sign-in, and
+signs out before deleting its temporary credentials. Live validation must not
+log credentials, URLs, request bodies, outputs, or request IDs.
 
 ## Documentation
 

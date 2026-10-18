@@ -580,3 +580,24 @@ ESM/declaration files, README, and package metadata. An independent temporary
 pnpm consumer installed that tarball, type-checked root imports, and executed
 offline mocked catalog, generation, and streaming calls. This validates package
 wiring only; it adds no account-backed capability evidence.
+
+### Final pre-v1 packed-consumer validation
+
+Validated locally with the same consenting account on 2026-10-18. The package
+was packed, installed into an independent temporary pnpm consumer fixture, and
+used only through its public root exports; no repository source or `dist` import
+was used. The fixture created and deleted its own credential directory.
+
+- Browser sign-in, account model listing (seven list-visible models), preferred
+  `gpt-5.6-terra` selection, and sign-out/revocation completed successfully.
+- AI SDK `generateText()` and `streamText()` completed with non-empty text.
+- The validated medium reasoning option, strict `Output.object()` structured
+  output, and a function-tool call followed by application-executed result
+  continuation all completed successfully.
+- PNG URL and inline inputs plus `text/plain` URL and tagged inline-text inputs
+  completed successfully. AI SDK defines a bare string file value as base64 data;
+  plain inline text must use `{ type: "text", text }`, which is now called out
+  in the README.
+- `pnpm validate:consumer:live` repeats this opt-in packed-consumer check. It
+  intentionally remains outside `release-check` because browser consent and a
+  billable/plan-backed account are required.

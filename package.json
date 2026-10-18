@@ -28,6 +28,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "validate:package": "node scripts/validate-package.mjs",
+    "validate:consumer:live": "pnpm build && node scripts/validate-package.mjs --live",
     "release-check": "pnpm typecheck && pnpm test && pnpm build && pnpm validate:package",
     "validate:live": "pnpm build && node scripts/validate-live-v0.1.mjs",
     "validate:live:v0.4": "pnpm build && node scripts/validate-live-v0.4.mjs",

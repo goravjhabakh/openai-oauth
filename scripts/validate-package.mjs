@@ -4,6 +4,7 @@ import { basename, join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
+const live = process.argv.includes('--live');
 const temp = await mkdtemp(join(tmpdir(), 'openai-oauth-package-'));
 const packDirectory = join(temp, 'pack');
 const fixture = join(temp, 'consumer');
@@ -29,6 +30,7 @@ try {
   runPnpm(['run', 'typecheck'], { cwd: fixture, stdio: 'inherit' });
   runPnpm(['run', 'build'], { cwd: fixture, stdio: 'inherit' });
   runPnpm(['run', 'start'], { cwd: fixture, stdio: 'inherit' });
+  if (live) runPnpm(['run', 'live'], { cwd: fixture, stdio: 'inherit' });
   console.log(`Validated packed ${basename(tarball)} with the independent consumer fixture.`);
 } finally {
   await rm(temp, { recursive: true, force: true });
