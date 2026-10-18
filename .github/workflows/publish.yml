@@ -32,4 +32,20 @@ jobs:
           node -e "const [major, minor, patch] = process.argv[1].split('.').map(Number); if (major < 11 || (major === 11 && (minor < 5 || (minor === 5 && patch < 1)))) throw new Error('npm 11.5.1 or newer is required; found ' + process.argv[1]);" "$npm_version"
       - name: Verify tag matches package version
         run: node -e "const version = require('./package.json').version; if (process.env.GITHUB_REF_NAME !== 'v' + version) throw new Error('Tag must equal v' + version + ', received ' + process.env.GITHUB_REF_NAME);"
-      - run: npm publish --access public
+      - name: Check whether this package version is already published
+        id: npm-version
+        run: |
+          package_name="$(node -p "require('./package.json').name")"
+          package_version="$(node -p "require('./package.json').version")"
+          if output="$(npm view "${package_name}@${package_version}" version --registry=https://registry.npmjs.org 2>&1)"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif printf '%s\n' "$output" | grep -q 'E404'; then
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            printf '%s\n' "$output" >&2
+            exit 1
+          fi
+      - if: steps.npm-version.outputs.exists != 'true'
+        run: npm publish --access public
+      - if: steps.npm-version.outputs.exists == 'true'
+        run: echo "Package version is already published; skipping npm publish."
