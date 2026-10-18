@@ -13,7 +13,7 @@ async function collect<T>(stream: AsyncIterable<T>): Promise<T[]> {
 describe('Responses SSE', () => {
   it('classifies structured admission errors without exposing authorization data', async () => {
     const error = await responseError(new Response(JSON.stringify({ error: { message: 'Bearer secret-token is rejected', code: 'subscription_sharing_usage_unavailable', param: 'reasoning' } }), { status: 503, headers: { 'x-request-id': 'req_1' } }));
-    expect(error).toMatchObject({ options: { status: 503, code: 'subscription_sharing_usage_unavailable', param: 'reasoning', requestId: 'req_1', retry: 'backoff' } });
+    expect(error).toMatchObject({ status: 503, code: 'subscription_sharing_usage_unavailable', param: 'reasoning', requestId: 'req_1', retry: 'backoff' });
     expect(error.message).not.toContain('secret-token');
   });
 

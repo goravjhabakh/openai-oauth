@@ -572,3 +572,11 @@ documentation controls the supported third-party integration path.
 - Package boundary: one package, `@gorav/openai-oauth`.
 - App/host identity: owned by the consuming application.
 - Dependencies: use `@ai-sdk/provider` and `@ai-sdk/provider-utils`; do not depend on `@ai-sdk/openai` initially.
+
+### v0.6 package validation
+
+On 2026-10-18, the generated tarball was inspected and contained only emitted
+ESM/declaration files, README, and package metadata. An independent temporary
+pnpm consumer installed that tarball, type-checked root imports, and executed
+offline mocked catalog, generation, and streaming calls. This validates package
+wiring only; it adds no account-backed capability evidence.

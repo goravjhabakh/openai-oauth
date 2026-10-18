@@ -27,11 +27,18 @@
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "validate:package": "node scripts/validate-package.mjs",
+    "release-check": "pnpm typecheck && pnpm test && pnpm build && pnpm validate:package",
     "validate:live": "pnpm build && node scripts/validate-live-v0.1.mjs",
     "validate:live:v0.4": "pnpm build && node scripts/validate-live-v0.4.mjs",
     "validate:live:v0.5": "pnpm build && node scripts/validate-live-v0.5.mjs"
   },
-  "keywords": [],
+  "keywords": [
+    "ai-sdk",
+    "openai",
+    "oauth",
+    "chatgpt"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {

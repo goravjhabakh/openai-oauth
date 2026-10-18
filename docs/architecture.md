@@ -187,4 +187,10 @@ maps only user PNG and `text/plain` file parts with fixture-proven URL/data
 forms. These mappings are gated to `gpt-5.6-terra`; provider references and
 unvalidated media types remain explicit local errors.
 
+v0.6 adds an independent consumer fixture outside source and tests. The release
+check builds and inspects the packed tarball, installs it into that fixture, then
+type-checks and executes public root imports against offline Responses fixtures.
+`OpenAIOAuthError` exposes redacted status/code/parameter/request-ID and retry
+guidance directly for consumer error handling.
+
 Streaming APIs, richer inputs, and other capabilities are added incrementally in later versions.

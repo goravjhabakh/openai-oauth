@@ -15,15 +15,18 @@ the public Responses API. It does not use Codex CLI or private ChatGPT routes.
 
 - OAuth sign-in, token refresh, and sign-out
 - Account-aware model discovery
-- `generateText()` and text-only `streamText()`
+- `generateText()` and `streamText()`
 - Required Responses SSE streaming, including client-side aggregation for
   `generateText()`
 - Safe response metadata, terminal usage, cancellation, and actionable errors
 - One account-backed validated reasoning setting: `gpt-5.6-terra` with medium
   effort
 
-Tools, structured output, rich inputs, browser support, and most reasoning
-controls are not supported yet. See [Roadmap](#roadmap).
+- Client-executed function tools (the validated top-level function form)
+- Strict JSON-schema output through AI SDK 7 `Output.object()`
+- User PNG and `text/plain` URL/inline file inputs on `gpt-5.6-terra`
+
+Browser support and every unlisted reasoning/tool/media form remain unsupported.
 
 ## Requirements
 
@@ -37,15 +40,15 @@ file. Do not commit credentials, host IDs, tokens, or authorization URLs.
 
 ## Local setup
 
-Until the v1.0 npm release, clone this repository and install its dependencies:
+Until publication, clone this repository and install its dependencies:
 
 ```bash
 pnpm install
 pnpm build
 ```
 
-The package declares `ai` as a peer dependency. Consumers in a workspace should
-install a compatible AI SDK version in their application.
+The package declares `ai` 7.x as a peer dependency. Once published, consumers
+will install it with `pnpm add @gorav/openai-oauth ai`.
 
 ## Quick start
 
@@ -72,8 +75,11 @@ const { text } = await generateText({
 });
 ```
 
-`signIn()` starts a temporary `127.0.0.1` callback listener and waits for the
-user to complete browser consent. Call it before model discovery or generation.
+`agentName` is the consuming application's real user-facing name, not this
+library's name. `signIn()` starts a temporary `127.0.0.1` callback listener and
+waits for browser consent. Call it before model discovery or generation. If a
+browser is unavailable, fix that local environment and call it again; the
+provider never silently reauthorizes or changes billing sources.
 
 ## Streaming
 
@@ -124,6 +130,60 @@ await generateText({
 It is not a provider default and does not imply support for another model,
 effort value, reasoning summaries, or visible reasoning text.
 
+## Tools
+
+Client-executed AI SDK function tools use the validated top-level Responses
+function form. `auto`, `none`, `required`, and a named supplied function are
+supported. Tool results must be text or JSON, and the next request must include
+the complete conversation/tool history. Provider-hosted tools and other tool
+encodings are not supported.
+
+```ts
+import { generateText, tool } from 'ai';
+
+const result = await generateText({
+  model: openaiOAuth(models[0].id),
+  prompt: 'What is the weather in Paris?',
+  tools: { weather: tool({ description: 'Get weather.', inputSchema: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] } }) },
+  toolChoice: 'required',
+});
+```
+
+Execute `result.toolCalls` in the application, then submit their results with
+the full AI SDK message history on the next call.
+
+## Structured output and rich input
+
+On `gpt-5.6-terra` only, use AI SDK 7 `Output.object()` with `generateText()`
+or `streamText()`. It maps to strict Responses JSON Schema; schemas must satisfy
+the upstream strict-schema requirements (for example, `additionalProperties:
+false` where required). This does not validate another model or a deprecated
+structured-output API.
+
+```ts
+import { generateText, jsonSchema, Output } from 'ai';
+
+await generateText({
+  model: openaiOAuth('gpt-5.6-terra'),
+  prompt: 'Return whether this is valid.',
+  output: Output.object({ schema: jsonSchema({ type: 'object', properties: { valid: { type: 'boolean' } }, required: ['valid'], additionalProperties: false }) }),
+});
+```
+
+The same model accepts user `image/png` and `text/plain` file parts as HTTP(S)
+URLs or inline data. Other media types, provider file references, file uploads,
+and unsupported history forms fail locally.
+
+## Errors and recovery
+
+`OpenAIOAuthError` exposes redacted `message`, `status`, `code`, `param`,
+`requestId`, and `retry` (`none`, `backoff`, or `reauthorize`) fields directly.
+Correct local/request input errors; use bounded backoff for `retry: 'backoff'`;
+and offer deliberate sign-in again for `retry: 'reauthorize'`. Eligibility and
+usage-limit errors should direct users to ChatGPT settings rather than trigger
+automatic retries. Errors never intentionally include tokens, identity claims,
+authorization URLs, request bodies, or tool input.
+
 ## API overview
 
 - `openaiOAuth.auth.signIn()` — browser OAuth sign-in and credential storage
@@ -145,14 +205,12 @@ and request bodies are never included in provider metadata.
   state is unavailable
 - Unsupported generic settings produce AI SDK warnings instead of being sent
 - No retries, billing fallback, or automatic OAuth reauthorization
-- Account-backed streaming validation remains incomplete for terminal failures,
+- Account-backed validation remains incomplete for terminal failures,
   interrupted streams, and cancellation
 
 ## Roadmap
 
-- v0.3: provider features — current implementation
-- v0.4: tools, if the documented OAuth route supports them cleanly
-- v0.5: richer inputs and structured output, after validation
+- v0.6: developer experience and package hardening — current implementation
 - v1.0: stable, publishable language-model provider
 
 ## Development
@@ -161,7 +219,15 @@ and request bodies are never included in provider metadata.
 pnpm typecheck
 pnpm test
 pnpm build
+pnpm validate:package
+# all offline release checks:
+pnpm release-check
 ```
+
+`validate:package` inspects the packed tarball, installs it in an independent
+temporary pnpm consumer, then type-checks and runs offline mock usage through
+the public root exports. Live validation remains opt-in (`pnpm validate:live:v0.5`)
+and must not log credentials, URLs, request bodies, outputs, or request IDs.
 
 ## Documentation
 

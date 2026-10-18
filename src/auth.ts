@@ -23,7 +23,7 @@ export class OpenAIOAuth {
   private refreshPromise: Promise<string> | undefined;
 
   constructor(private readonly options: OpenAIOAuthOptions) {
-    if (!options.agentName || !options.hostId) throw new Error('agentName and hostId are required.');
+    validateOptions(options);
     this.requestFetch = options.fetch ?? globalThis.fetch;
   }
 
@@ -125,6 +125,27 @@ export class OpenAIOAuth {
   }
 }
 
+function validateOptions(options: OpenAIOAuthOptions): void {
+  if (typeof options.agentName !== 'string' || !options.agentName.trim()) {
+    throw new OpenAIOAuthError('agentName must be a non-empty name for the consuming application.');
+  }
+  if (typeof options.hostId !== 'string' || !options.hostId.trim()) {
+    throw new OpenAIOAuthError('hostId must be a persisted, non-empty opaque identifier owned by the application.');
+  }
+  if (typeof options.credentialKey !== 'string' || !options.credentialKey.trim()) {
+    throw new OpenAIOAuthError('credentialKey must be a non-empty credential-store record key.');
+  }
+  if (!options.credentialStore || typeof options.credentialStore.load !== 'function' || typeof options.credentialStore.save !== 'function' || typeof options.credentialStore.delete !== 'function') {
+    throw new OpenAIOAuthError('credentialStore must provide async load, save, and delete methods.');
+  }
+  if (typeof options.openAuthorizationUrl !== 'function') {
+    throw new OpenAIOAuthError('openAuthorizationUrl must open the OAuth consent URL in a local browser.');
+  }
+  if (options.fetch !== undefined && typeof options.fetch !== 'function') {
+    throw new OpenAIOAuthError('fetch must be a fetch-compatible function.');
+  }
+}
+
 function modelCapabilities(id: string): OpenAIModelCatalogEntry['capabilities'] {
   return {
     route: {
@@ -132,11 +153,13 @@ function modelCapabilities(id: string): OpenAIModelCatalogEntry['capabilities'] 
       imageGeneration: false, fileSearch: false, codeInterpreter: false, computerUse: false, hostedMcp: false,
       toolSearch: false, persistentResponses: false,
     },
-    text: 'validated', streaming: 'validated', nonStreamingHttp: 'advertised',
+    // The route supports these forms, but a list-visible model is not itself an
+    // account-backed entitlement result. Keep model-specific evidence honest.
+    text: 'advertised', streaming: 'advertised', nonStreamingHttp: 'advertised',
     filesUpload: 'advertised', audioVideo: 'advertised', imageGeneration: 'advertised', fileSearch: 'advertised',
     codeInterpreter: 'advertised', computerUse: 'advertised', hostedMcp: 'advertised', toolSearch: 'advertised',
     persistentResponses: 'advertised', reasoning: id === 'gpt-5.6-terra' ? 'validated' : 'unknown',
-    tools: 'unknown', images: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', files: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', webSearch: 'unknown', jsonSchema: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', detailedUsage: 'unknown',
+    tools: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', images: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', files: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', webSearch: 'unknown', jsonSchema: id === 'gpt-5.6-terra' ? 'validated' : 'unknown', detailedUsage: id === 'gpt-5.6-terra' ? 'validated' : 'unknown',
   };
 }
 

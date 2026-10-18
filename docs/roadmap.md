@@ -61,6 +61,15 @@ If the backend supports the required behavior cleanly:
 The provider supports only the account-backed validated `gpt-5.6-terra` forms:
 JSON-schema output, PNG URL/data images, and plain-text URL/inline inputs.
 
+## v0.6 — Developer Experience and Pre-v1 Hardening — Complete
+
+- packed-tarball consumer fixture and release check
+- public configuration/error contract hardening
+- documentation for the validated v0.5 surface
+
+The offline fixture installs the generated tarball rather than linking this
+repository. Account-backed validation remains opt-in.
+
 ## v1.0 — Stable Language Model Provider
 
 - stable public API

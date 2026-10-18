@@ -1,10 +1,31 @@
+export type OpenAIOAuthErrorOptions = {
+  status?: number;
+  code?: string;
+  param?: string;
+  requestId?: string;
+  retry?: 'none' | 'backoff' | 'reauthorize';
+  cause?: unknown;
+};
+
+/** A redacted error returned by local OAuth setup or the OpenAI OAuth route. */
 export class OpenAIOAuthError extends Error {
+  readonly status: number | undefined;
+  readonly code: string | undefined;
+  readonly param: string | undefined;
+  readonly requestId: string | undefined;
+  readonly retry: 'none' | 'backoff' | 'reauthorize';
   constructor(
     message: string,
-    readonly options: { status?: number; code?: string; param?: string; requestId?: string; retry?: 'none' | 'backoff' | 'reauthorize'; cause?: unknown } = {},
+    readonly options: OpenAIOAuthErrorOptions = {},
   ) {
     super(message);
     this.name = 'OpenAIOAuthError';
+    this.status = options.status;
+    this.code = options.code;
+    this.param = options.param;
+    this.requestId = options.requestId;
+    this.retry = options.retry ?? 'none';
+    if (options.cause !== undefined) this.cause = options.cause;
   }
 }
 
