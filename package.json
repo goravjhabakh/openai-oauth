@@ -40,8 +40,16 @@
     "oauth",
     "chatgpt"
   ],
-  "author": "",
+  "author": "Gorav Jhabakh",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/goravjhabakh/openai-oauth.git"
+  },
+  "homepage": "https://github.com/goravjhabakh/openai-oauth#readme",
+  "bugs": {
+    "url": "https://github.com/goravjhabakh/openai-oauth/issues"
+  },
   "dependencies": {
     "@ai-sdk/provider": "^4.0.28",
     "@ai-sdk/provider-utils": "^5.0.61",

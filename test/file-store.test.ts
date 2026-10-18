@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
@@ -13,5 +13,13 @@ describe('FileCredentialStore', () => {
     expect(JSON.parse(await readFile(path, 'utf8')).account.clientId).toBe('client');
     await store.delete('account');
     expect(await store.load('account')).toBeNull();
+  });
+
+  it('does not overwrite malformed credential JSON', async () => {
+    const path = join(tmpdir(), `openai-oauth-${crypto.randomUUID()}.json`);
+    await writeFile(path, '{not json');
+    const store = new FileCredentialStore(path);
+    await expect(store.load('account')).rejects.toThrow('Credential store is corrupt');
+    expect(await readFile(path, 'utf8')).toBe('{not json');
   });
 });

@@ -193,4 +193,13 @@ type-checks and executes public root imports against offline Responses fixtures.
 `OpenAIOAuthError` exposes redacted status/code/parameter/request-ID and retry
 guidance directly for consumer error handling.
 
+## Refresh concurrency
+
+`OpenAIOAuth` deduplicates refreshes only within one instance. `FileCredentialStore`
+serializes file writes across processes, but cannot make the load → token refresh
+→ save sequence atomic. Because refresh tokens rotate, applications must not use
+the same credential record from multiple processes. Use a separate credential
+record per process or a custom store/coordinator that locks the entire refresh
+transaction.
+
 Streaming APIs, richer inputs, and other capabilities are added incrementally in later versions.

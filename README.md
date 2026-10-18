@@ -209,10 +209,14 @@ and request bodies are never included in provider metadata.
 - No retries, billing fallback, or automatic OAuth reauthorization
 - Account-backed validation remains incomplete for terminal failures,
   interrupted streams, and cancellation
+- Refresh is deduplicated within one `OpenAIOAuth` instance only. Do not share
+  one credential record between processes: a concurrent refresh can race the
+  rotating refresh token. Use one credential record per process or provide a
+  credential store with cross-process refresh coordination.
 
 ## Roadmap
 
-- v0.6: developer experience and package hardening — current implementation
+- pre-v1: package hardening and release automation — complete
 - v1.0: stable, publishable language-model provider
 
 ## Development

@@ -1,10 +1,15 @@
 import { mkdir, open, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type { CredentialStore, OAuthCredentials } from '../types.js';
+import { OpenAIOAuthError } from '../errors.js';
 
 type Records = Record<string, OAuthCredentials>;
 
-/** A local JSON credential store. The caller chooses its path and record key. */
+/**
+ * A local JSON credential store. The caller chooses its path and record key.
+ * Writes are serialized across processes, but OAuth refresh itself is only
+ * serialized within one OpenAIOAuth instance.
+ */
 export class FileCredentialStore implements CredentialStore {
   constructor(readonly path: string) {}
 
@@ -31,9 +36,15 @@ export class FileCredentialStore implements CredentialStore {
   private async read(): Promise<Records> {
     try {
       const parsed: unknown = JSON.parse(await readFile(this.path, 'utf8'));
-      return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as Records : {};
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        throw new OpenAIOAuthError(`Credential store is corrupt: expected a JSON object at ${this.path}.`);
+      }
+      return parsed as Records;
     } catch (error: unknown) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT' || error instanceof SyntaxError) return {};
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return {};
+      if (error instanceof SyntaxError) {
+        throw new OpenAIOAuthError(`Credential store is corrupt and was not modified: ${this.path}.`, { cause: error });
+      }
       throw error;
     }
   }

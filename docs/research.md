@@ -380,6 +380,14 @@ not committed.
 Not yet live-validated: concurrent cross-process refresh, terminal stream
 failures/EOF, admission errors, and a second account or plan.
 
+### Current implementation limitation
+
+`OpenAIOAuth` currently deduplicates refreshes only within one instance.
+`FileCredentialStore` locks individual writes, not the complete load → refresh →
+save transaction, so multiple processes must not share a credential record. A
+consumer that needs this topology must use separate records or provide a custom
+store/coordinator with cross-process transaction locking.
+
 ### Account-backed validation preference
 
 For future live/account-backed validation, prefer `gpt-5.6-terra` with a

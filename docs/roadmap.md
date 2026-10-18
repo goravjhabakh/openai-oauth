@@ -21,7 +21,7 @@ Before implementation, understand:
 - basic errors
 - usage data where available
 
-## v0.2 — Streaming — Implementation Complete; Account-Backed Validation Pending
+## v0.2 — Streaming — Complete; Edge-Case Validation Pending
 
 - `streamText()`
 - incremental stream parsing
@@ -29,7 +29,11 @@ Before implementation, understand:
 - cancellation
 - stream errors
 
-## v0.3 — Provider Features — In Progress
+Basic account-backed `streamText()` validation has completed. Account-backed
+validation remains incomplete for cancellation, interrupted streams, and terminal
+error cases.
+
+## v0.3 — Provider Features — Complete for the Validated Surface
 
 - reasoning options
 - model capabilities
@@ -66,9 +70,17 @@ JSON-schema output, PNG URL/data images, and plain-text URL/inline inputs.
 - packed-tarball consumer fixture and release check
 - public configuration/error contract hardening
 - documentation for the validated v0.5 surface
+- dependency-free callback success/error pages that only confirm success after
+  validation, token exchange, and credential persistence
+- public package metadata, MIT license, ignore rules, and CI release check
 
 The offline fixture installs the generated tarball rather than linking this
 repository. Account-backed validation remains opt-in.
+
+Known operational limitation: refresh is deduplicated within one
+`OpenAIOAuth` instance, but not across processes sharing one credential record.
+Consumers need separate records per process or a custom cross-process refresh
+coordinator until that transaction can be made atomic.
 
 ## v1.0 — Stable Language Model Provider
 

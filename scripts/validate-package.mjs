@@ -17,7 +17,7 @@ try {
   if (!packed) throw new Error('pnpm pack did not produce a tarball.');
   const tarball = join(packDirectory, packed);
   const listing = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
-  const expected = new Set(['package/dist/index.js', 'package/dist/index.d.ts', 'package/package.json', 'package/README.md']);
+  const expected = new Set(['package/dist/index.js', 'package/dist/index.d.ts', 'package/LICENSE', 'package/package.json', 'package/README.md']);
   if (listing.length !== expected.size || listing.some(file => !expected.has(file))) {
     throw new Error(`Unexpected package contents: ${listing.join(', ')}`);
   }

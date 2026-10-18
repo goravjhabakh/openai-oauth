@@ -29,6 +29,7 @@ export class OpenAIOAuth {
 
   async signIn(): Promise<OAuthCredentials> {
     const callback = await createCallbackServer();
+    let callbackResult: CallbackResult | undefined;
     const state = randomValue();
     const nonce = randomValue();
     const verifier = randomValue();
@@ -46,7 +47,8 @@ export class OpenAIOAuth {
       }).toString();
       if (existing?.idToken) authorization.searchParams.set('id_token_hint', existing.idToken);
       await this.options.openAuthorizationUrl(authorization.toString());
-      const params = await callback.waitForCallback();
+      callbackResult = await callback.waitForCallback();
+      const params = callbackResult.params;
       if (params.get('state') !== state) throw new OpenAIOAuthError('OAuth callback state did not match.');
       if (params.get('error')) throw new OpenAIOAuthError(`OAuth authorization failed: ${params.get('error_description') ?? params.get('error')}`);
       const code = params.get('code');
@@ -55,7 +57,13 @@ export class OpenAIOAuth {
       const tokens = await this.token({ grant_type: 'authorization_code', code, client_id: clientId, code_verifier: verifier, redirect_uri: callback.redirectUri, resource: API_BASE });
       const credentials = await this.credentialsFromToken(tokens, clientId, nonce, existing);
       await this.options.credentialStore.save(this.options.credentialKey, credentials);
+      callbackResult.respond('success');
       return credentials;
+    } catch (error) {
+      // The browser must not be told that sign-in succeeded until the callback
+      // has passed every local validation step and credentials are durable.
+      callbackResult?.respond('error');
+      throw error;
     } finally { callback.close(); }
   }
 
@@ -169,15 +177,28 @@ interface TokenResponse { access_token: string; refresh_token: string; id_token?
 function randomValue() { return base64url(randomBytes(32)); }
 function base64url(value: Uint8Array) { return Buffer.from(value).toString('base64url'); }
 
+interface CallbackResult {
+  params: URLSearchParams;
+  respond: (status: 'success' | 'error') => void;
+}
+
 function createCallbackServer() {
-  let resolve: ((value: URLSearchParams) => void) | undefined;
+  let resolve: ((value: CallbackResult) => void) | undefined;
   let reject: ((reason: Error) => void) | undefined;
-  const result = new Promise<URLSearchParams>((res, rej) => { resolve = res; reject = rej; });
+  const result = new Promise<CallbackResult>((res, rej) => { resolve = res; reject = rej; });
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
     if (url.pathname !== '/auth/callback') { response.writeHead(404).end(); return; }
-    response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' }).end('Sign-in complete. You can close this window.');
-    resolve?.(url.searchParams);
+    resolve?.({
+      params: url.searchParams,
+      respond(status) {
+        if (response.writableEnded) return;
+        response.writeHead(status === 'success' ? 200 : 400, {
+          'content-type': 'text/html; charset=utf-8',
+          'cache-control': 'no-store',
+        }).end(callbackPage(status));
+      },
+    });
   });
   return {
     get redirectUri() { const address = server.address(); if (!address || typeof address === 'string') throw new Error('OAuth callback server did not start.'); return `http://127.0.0.1:${address.port}/auth/callback`; },
@@ -185,4 +206,14 @@ function createCallbackServer() {
     async waitForCallback() { return result; },
     close() { server.close(); reject?.(new Error('OAuth callback server closed.')); },
   };
+}
+
+function callbackPage(status: 'success' | 'error'): string {
+  const success = status === 'success';
+  const title = success ? 'Sign-in complete' : 'Sign-in could not be completed';
+  const message = success
+    ? 'Your account has been connected. You can safely close this window and return to the app.'
+    : 'Your account was not connected. Return to the app and try again.';
+  const icon = success ? '&#10003;' : '!';
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f6f7fb;color:#1d2433;font:16px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.card{box-sizing:border-box;width:min(92vw,460px);padding:40px;border:1px solid #e3e6ed;border-radius:16px;background:#fff;box-shadow:0 12px 32px #19203314;text-align:center}.icon{width:48px;height:48px;margin:0 auto 18px;display:grid;place-items:center;border-radius:50%;background:${success ? '#e8f7ee' : '#fff0f0'};color:${success ? '#137333' : '#b3261e'};font-size:28px;font-weight:700}h1{margin:0 0 10px;font-size:24px;letter-spacing:-.02em}p{margin:0;color:#566074}</style></head><body><main class="card"><div class="icon" aria-hidden="true">${icon}</div><h1>${title}</h1><p>${message}</p></main></body></html>`;
 }
