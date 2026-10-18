@@ -610,3 +610,17 @@ was used. The fixture created and deleted its own credential directory.
   opt-in packed-consumer check successfully. It intentionally remains outside
   `release-check` because browser consent and a billable/plan-backed account
   are required.
+
+### npm trusted-publishing readiness
+
+Verified against npm's trusted-publishing documentation on 2026-10-18:
+
+- GitHub Actions trusted publishing requires a GitHub-hosted runner,
+  `id-token: write`, npm CLI 11.5.1 or later, and Node.js 22.14.0 or later.
+- For a public package from a public repository, npm automatically produces
+  provenance for a successful OIDC trusted publish; the workflow must not use
+  a long-lived npm publishing token or pass `--provenance`.
+- The npm trusted publisher must exactly name the GitHub owner, repository,
+  workflow filename, and, when used, GitHub Environment. A newly configured
+  trusted publisher expires if it does not complete a first successful publish
+  within two days.

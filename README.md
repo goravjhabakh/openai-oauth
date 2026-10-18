@@ -245,6 +245,10 @@ log credentials, URLs, request bodies, outputs, or request IDs.
 Publishing, tagging, and GitHub Release creation are deliberate manual release
 steps and are not performed by these commands.
 
+Maintainers should follow the trusted-publishing setup and release procedure in
+[`docs/release.md`](docs/release.md). Publishing is performed only by the
+protected GitHub Actions workflow, not from a workstation.
+
 ## Documentation
 
 - [`docs/project.md`](docs/project.md) — project goal and principles
