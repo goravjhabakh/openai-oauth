@@ -82,7 +82,7 @@ Known operational limitation: refresh is deduplicated within one
 Consumers need separate records per process or a custom cross-process refresh
 coordinator until that transaction can be made atomic.
 
-## v1.0 — Stable Language Model Provider
+## v1.0 — Stable Language Model Provider — Release Ready
 
 - stable public API
 - reliable authentication lifecycle
@@ -90,3 +90,7 @@ coordinator until that transaction can be made atomic.
 - tested capability matrix
 - documentation and examples
 - publishable package
+
+The package metadata, root-only ESM export, packed-consumer fixture, and
+release documentation are prepared for `1.0.0`. npm publication, the annotated
+tag, and GitHub Release remain intentional manual steps.

@@ -589,7 +589,7 @@ pnpm consumer installed that tarball, type-checked root imports, and executed
 offline mocked catalog, generation, and streaming calls. This validates package
 wiring only; it adds no account-backed capability evidence.
 
-### Final pre-v1 packed-consumer validation
+### Final v1.0 packed-consumer validation
 
 Validated locally with the same consenting account on 2026-10-18. The package
 was packed, installed into an independent temporary pnpm consumer fixture, and
@@ -606,6 +606,7 @@ was used. The fixture created and deleted its own credential directory.
   completed successfully. AI SDK defines a bare string file value as base64 data;
   plain inline text must use `{ type: "text", text }`, which is now called out
   in the README.
-- `pnpm validate:consumer:live` repeats this opt-in packed-consumer check. It
-  intentionally remains outside `release-check` because browser consent and a
-  billable/plan-backed account are required.
+- The final `pnpm validate:consumer:live` release-readiness run repeated this
+  opt-in packed-consumer check successfully. It intentionally remains outside
+  `release-check` because browser consent and a billable/plan-backed account
+  are required.

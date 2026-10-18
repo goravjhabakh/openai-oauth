@@ -1,10 +1,19 @@
 import { generateText, streamText, type LanguageModel } from 'ai';
 import {
   FileCredentialStore,
+  OpenAIOAuth,
   OpenAIOAuthError,
   createOpenAIOAuth,
+  type CapabilityState,
   type CredentialStore,
+  type OpenAIModel,
+  type OpenAIModelCapabilities,
   type OpenAIModelCatalogEntry,
+  type OpenAIOAuthErrorOptions,
+  type OpenAIOAuthOptions,
+  type OpenAIOAuthProvider,
+  type OpenAIOAuthProviderOptions,
+  type OpenAIOAuthRouteCapabilities,
   type OAuthCredentials,
 } from '@gorav/openai-oauth';
 
@@ -27,7 +36,29 @@ const provider = createOpenAIOAuth({
   },
 });
 
+const documentedRootTypes: [
+  CapabilityState,
+  OpenAIOAuthErrorOptions,
+  OpenAIOAuthOptions,
+  OpenAIOAuthProvider,
+  OpenAIOAuthProviderOptions,
+  OpenAIOAuthRouteCapabilities,
+  OpenAIModel,
+  OpenAIModelCapabilities,
+] = [
+  'unknown',
+  { retry: 'none' },
+  { agentName: 'Fixture', hostId: 'urn:uuid:fixture-host', credentialStore: store, credentialKey: 'default', openAuthorizationUrl() {} },
+  provider,
+  { effort: 'medium' },
+  { text: true, mandatoryStreaming: true, nonStreamingHttp: false, filesUpload: false, audioVideo: false, imageGeneration: false, fileSearch: false, codeInterpreter: false, computerUse: false, hostedMcp: false, toolSearch: false, persistentResponses: false },
+  { id: 'fixture-model', name: 'Fixture model' },
+  {} as OpenAIModelCapabilities,
+];
+void documentedRootTypes;
+
 const catalog: OpenAIModelCatalogEntry[] = await provider.auth.listModelCatalog();
+if (!(provider.auth instanceof OpenAIOAuth)) throw new Error('Public auth export is unavailable.');
 const model: LanguageModel = provider.languageModel(catalog[0].id);
 const generated = await generateText({ model, prompt: 'Hello' });
 const streamed = streamText({ model, prompt: 'Hello' });

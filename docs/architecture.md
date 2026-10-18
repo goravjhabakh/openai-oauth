@@ -193,6 +193,10 @@ type-checks and executes public root imports against offline Responses fixtures.
 `OpenAIOAuthError` exposes redacted status/code/parameter/request-ID and retry
 guidance directly for consumer error handling.
 
+v1.0 stabilizes this existing public root-entrypoint contract. It does not
+broaden the protocol surface, alter the per-instance refresh constraint, or add
+new authentication/storage capabilities.
+
 ## Refresh concurrency
 
 `OpenAIOAuth` deduplicates refreshes only within one instance. `FileCredentialStore`

@@ -6,10 +6,11 @@ account instead of a separately billed OpenAI API key.
 It uses OpenAI's public **Sign in with ChatGPT** OAuth plan-sharing flow and
 the public Responses API. It does not use Codex CLI or private ChatGPT routes.
 
-> **Pre-release:** This package is under active development toward v1.0 and is
-> not yet published to npm. It is intended for local development from this
-> repository. OpenAI's plan-sharing flow is a preview and is for local/open-
-> source use; it is not blanket authorization for hosted or commercial apps.
+> **OAuth preview boundary:** This package has a stable 1.0 public API, but
+> OpenAI's plan-sharing service remains a preview for local/open-source use.
+> It is not blanket authorization for hosted or commercial apps. Use the
+> published package only where OpenAI's current terms and approval process
+> permit it; this provider never silently changes billing sources.
 
 ## What works today
 
@@ -38,17 +39,16 @@ Browser support and every unlisted reasoning/tool/media form remain unsupported.
 The application must persist a stable opaque host ID and protect its credential
 file. Do not commit credentials, host IDs, tokens, or authorization URLs.
 
-## Local setup
+## Installation
 
-Until publication, clone this repository and install its dependencies:
+Install the provider and its AI SDK 7 peer dependency:
 
 ```bash
-pnpm install
-pnpm build
+pnpm add @gorav/openai-oauth ai
 ```
 
-The package declares `ai` 7.x as a peer dependency. Once published, consumers
-will install it with `pnpm add @gorav/openai-oauth ai`.
+The package is ESM-only and requires Node.js 20 or later. Use only the root
+import, `@gorav/openai-oauth`; subpath and `dist` imports are unsupported.
 
 ## Quick start
 
@@ -213,11 +213,16 @@ and request bodies are never included in provider metadata.
   one credential record between processes: a concurrent refresh can race the
   rotating refresh token. Use one credential record per process or provide a
   credential store with cross-process refresh coordination.
+- Live account coverage does not yet include cancellation, interrupted
+  transport, terminal failure/incomplete events, or admission-error mappings.
+  Cross-process refresh coordination, crash recovery, corrupt-record handling,
+  and file-store durability still need coverage on Windows, macOS, and Linux.
+- Model catalog and entitlement differences have been observed for one
+  consenting account only. A listed model is never an entitlement guarantee.
 
 ## Roadmap
 
-- pre-v1: package hardening and release automation — complete
-- v1.0: stable, publishable language-model provider
+- v1.0: stable, release-ready language-model provider
 
 ## Development
 
@@ -236,6 +241,9 @@ the public root exports. `pnpm validate:consumer:live` runs the same packed
 consumer fixture against a consenting account, performs a browser sign-in, and
 signs out before deleting its temporary credentials. Live validation must not
 log credentials, URLs, request bodies, outputs, or request IDs.
+
+Publishing, tagging, and GitHub Release creation are deliberate manual release
+steps and are not performed by these commands.
 
 ## Documentation
 

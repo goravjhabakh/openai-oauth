@@ -1,5 +1,10 @@
 # Project
 
+Release status: the package is prepared for the stable `1.0.0` release. Its
+stable contract is intentionally limited to the documented, account-backed
+validated OAuth Responses surface; OpenAI's underlying plan-sharing service
+remains preview-only.
+
 ## Goal
 
 Build `@gorav/openai-oauth`, a Vercel AI SDK provider that allows users to authenticate with their OpenAI/ChatGPT account instead of requiring a separately billed OpenAI API key.
