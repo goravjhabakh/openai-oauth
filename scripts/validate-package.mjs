@@ -16,10 +16,13 @@ try {
   const packed = (await readdir(packDirectory)).find(file => file.endsWith('.tgz'));
   if (!packed) throw new Error('pnpm pack did not produce a tarball.');
   const tarball = join(packDirectory, packed);
-  const listing = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' }).split(/\r?\n/).filter(Boolean);
+  const listing = new Set(execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(file => file.replace(/\/\.\//g, '/')));
   const expected = new Set(['package/dist/index.js', 'package/dist/index.d.ts', 'package/LICENSE', 'package/package.json', 'package/README.md']);
-  if (listing.length !== expected.size || listing.some(file => !expected.has(file))) {
-    throw new Error(`Unexpected package contents: ${listing.join(', ')}`);
+  if (listing.size !== expected.size || [...listing].some(file => !expected.has(file))) {
+    throw new Error(`Unexpected package contents: ${[...listing].join(', ')}`);
   }
 
   await cp(resolve(root, 'fixtures/consumer'), fixture, { recursive: true });
