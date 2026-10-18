@@ -8,7 +8,7 @@ describe('FileCredentialStore', () => {
   it('persists and removes credential records', async () => {
     const path = join(tmpdir(), `openai-oauth-${crypto.randomUUID()}.json`);
     const store = new FileCredentialStore(path);
-    await store.save('account', { clientId: 'client', hostId: 'host', identity: { issuer: 'issuer', sub: 'subject' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: 1, scopes: [] });
+    await store.save('account', { clientId: 'client', hostId: 'urn:uuid:6ba7b810-9dad-41d1-80b4-00c04fd430c8', identity: { issuer: 'issuer', sub: 'subject' }, accessToken: 'access', refreshToken: 'refresh', idToken: 'id', expiresAt: 1, scopes: [] });
     expect((await store.load('account'))?.accessToken).toBe('access');
     expect(JSON.parse(await readFile(path, 'utf8')).account.clientId).toBe('client');
     await store.delete('account');

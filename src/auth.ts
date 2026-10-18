@@ -137,8 +137,11 @@ function validateOptions(options: OpenAIOAuthOptions): void {
   if (typeof options.agentName !== 'string' || !options.agentName.trim()) {
     throw new OpenAIOAuthError('agentName must be a non-empty name for the consuming application.');
   }
-  if (typeof options.hostId !== 'string' || !options.hostId.trim()) {
-    throw new OpenAIOAuthError('hostId must be a persisted, non-empty opaque identifier owned by the application.');
+  if (typeof options.hostId !== 'string' || !isSupportedHostId(options.hostId)) {
+    throw new OpenAIOAuthError(
+      'hostId must be a persisted urn:uuid:<UUIDv4> or urn:ietf:params:oauth:jwk-thumbprint:<value> identifier owned by the application. Bare UUIDs are not supported; prefix UUIDs with urn:uuid:.',
+      { code: 'invalid_host_id', param: 'hostId' },
+    );
   }
   if (typeof options.credentialKey !== 'string' || !options.credentialKey.trim()) {
     throw new OpenAIOAuthError('credentialKey must be a non-empty credential-store record key.');
@@ -152,6 +155,11 @@ function validateOptions(options: OpenAIOAuthOptions): void {
   if (options.fetch !== undefined && typeof options.fetch !== 'function') {
     throw new OpenAIOAuthError('fetch must be a fetch-compatible function.');
   }
+}
+
+function isSupportedHostId(hostId: string): boolean {
+  return /^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(hostId)
+    || /^urn:ietf:params:oauth:jwk-thumbprint:\S+$/.test(hostId);
 }
 
 function modelCapabilities(id: string): OpenAIModelCatalogEntry['capabilities'] {

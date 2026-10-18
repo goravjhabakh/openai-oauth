@@ -611,6 +611,15 @@ was used. The fixture created and deleted its own credential directory.
   `release-check` because browser consent and a billable/plan-backed account
   are required.
 
+### v1.0.2 published-package consumer validation
+
+Validated in a fresh external AI SDK consumer against the published package on
+2026-10-18. The smoke validation completed medium reasoning on `gpt-5.6-terra`,
+function-tool continuation, `Output.object()` structured output, a known-valid
+inline PNG, tagged inline `text/plain` input, and sign-out. An earlier PNG
+rejection was traced to invalid test image bytes; the successful known-valid PNG
+does not indicate a provider image-handling defect.
+
 ### npm trusted-publishing readiness
 
 Verified against npm's trusted-publishing documentation on 2026-10-18:

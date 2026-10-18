@@ -19,14 +19,14 @@ import {
 
 const store: CredentialStore = new FileCredentialStore('.private/openai-oauth.json');
 const credentials: OAuthCredentials = {
-  clientId: 'fixture-client', hostId: 'urn:uuid:fixture-host', identity: { issuer: 'https://auth.openai.com', sub: 'fixture' },
+  clientId: 'fixture-client', hostId: 'urn:uuid:6ba7b810-9dad-41d1-80b4-00c04fd430c8', identity: { issuer: 'https://auth.openai.com', sub: 'fixture' },
   accessToken: 'fixture-access', refreshToken: 'fixture-refresh', idToken: 'fixture-id', expiresAt: Date.now() + 3_600_000, scopes: ['chatgpt.tokens.use.direct'],
 };
 await store.save('default', credentials);
 
 const provider = createOpenAIOAuth({
   agentName: 'Packed consumer fixture',
-  hostId: 'urn:uuid:fixture-host',
+  hostId: 'urn:uuid:6ba7b810-9dad-41d1-80b4-00c04fd430c8',
   credentialStore: store,
   credentialKey: 'default',
   openAuthorizationUrl: async () => {},
@@ -48,7 +48,7 @@ const documentedRootTypes: [
 ] = [
   'unknown',
   { retry: 'none' },
-  { agentName: 'Fixture', hostId: 'urn:uuid:fixture-host', credentialStore: store, credentialKey: 'default', openAuthorizationUrl() {} },
+  { agentName: 'Fixture', hostId: 'urn:uuid:6ba7b810-9dad-41d1-80b4-00c04fd430c8', credentialStore: store, credentialKey: 'default', openAuthorizationUrl() {} },
   provider,
   { effort: 'medium' },
   { text: true, mandatoryStreaming: true, nonStreamingHttp: false, filesUpload: false, audioVideo: false, imageGeneration: false, fileSearch: false, codeInterpreter: false, computerUse: false, hostedMcp: false, toolSearch: false, persistentResponses: false },

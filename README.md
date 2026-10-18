@@ -37,7 +37,9 @@ Browser support and every unlisted reasoning/tool/media form remain unsupported.
 - A local browser opener for the OAuth consent URL
 
 The application must persist a stable opaque host ID and protect its credential
-file. Do not commit credentials, host IDs, tokens, or authorization URLs.
+file. Do not commit credentials, host IDs, tokens, or authorization URLs. Use a
+recommended JWK-thumbprint URN where available, or a UUIDv4 with its required
+`urn:uuid:` prefix. A bare UUID is not a valid host ID.
 
 ## Installation
 
@@ -58,8 +60,8 @@ import { createOpenAIOAuth, FileCredentialStore } from '@goravjhabakh/openai-oau
 
 const openaiOAuth = createOpenAIOAuth({
   agentName: 'My local app',
-  // Generate once and persist this value for this installation.
-  hostId: 'urn:uuid:replace-with-a-persisted-uuid',
+  // Generate a UUIDv4 once, add the urn:uuid: prefix, and persist it for this installation.
+  hostId: 'urn:uuid:6ba7b810-9dad-41d1-80b4-00c04fd430c8',
   credentialStore: new FileCredentialStore('/private/path/openai-oauth.json'),
   credentialKey: 'default',
   // Open this URL with the platform browser launcher in your application.
@@ -81,6 +83,15 @@ waits for browser consent. Call it before model discovery or generation. If a
 browser is unavailable, fix that local environment and call it again; the
 provider never silently reauthorizes or changes billing sources. After loading,
 the callback page clears OAuth query parameters from its browser URL.
+
+### Host IDs
+
+The consuming application, not this package, owns and persists its stable host
+ID. OpenAI recommends a JWK-thumbprint URN in the form
+`urn:ietf:params:oauth:jwk-thumbprint:<value>`. A UUID alternative must be a
+UUIDv4 prefixed with `urn:uuid:`, for example
+`urn:uuid:6ba7b810-9dad-41d1-80b4-00c04fd430c8`. Do not pass a bare UUID: it is
+rejected locally before the browser is opened.
 
 ## Streaming
 
